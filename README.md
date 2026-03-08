@@ -50,29 +50,85 @@ Add to your workflow after your test step:
 
 If a threshold is configured but the coverage format doesn't report that metric (e.g., `threshold-branch` with `gocover`), the threshold is skipped and a notice annotation is emitted.
 
-## Example Workflow
+## Examples
+
+### Go
 
 ```yaml
-name: Coverage
-on: [pull_request]
+- run: go test -coverprofile=cover.out ./...
 
-jobs:
-  check:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
+- uses: evansims/coverlint@v1
+  with:
+    path: cover.out
+    format: gocover
+    threshold-line: 80
+```
 
-      - uses: actions/setup-go@v6
-        with:
-          go-version-file: go.mod
+### Rust
 
-      - run: go test -coverprofile=cover.out ./...
+```yaml
+- run: cargo llvm-cov --lcov --output-path lcov.info
 
-      - uses: evansims/coverlint@v1
-        with:
-          path: cover.out
-          format: gocover
-          threshold-line: 80
+- uses: evansims/coverlint@v1
+  with:
+    path: lcov.info
+    format: lcov
+    threshold-line: 80
+    threshold-branch: 70
+```
+
+### TypeScript / JavaScript (Vitest)
+
+```yaml
+- run: npx vitest run --coverage --coverage.reporter=lcov
+
+- uses: evansims/coverlint@v1
+  with:
+    path: coverage/lcov.info
+    format: lcov
+    threshold-line: 80
+    threshold-branch: 70
+    threshold-function: 80
+```
+
+### Python (pytest)
+
+```yaml
+- run: pytest --cov --cov-report=xml:coverage.xml
+
+- uses: evansims/coverlint@v1
+  with:
+    path: coverage.xml
+    format: cobertura
+    threshold-line: 80
+    threshold-branch: 70
+```
+
+### PHP (PHPUnit)
+
+```yaml
+- run: vendor/bin/phpunit --coverage-clover=coverage.xml
+
+- uses: evansims/coverlint@v1
+  with:
+    path: coverage.xml
+    format: clover
+    threshold-line: 80
+    threshold-function: 80
+```
+
+### Java (Gradle + JaCoCo)
+
+```yaml
+- run: ./gradlew test jacocoTestReport
+
+- uses: evansims/coverlint@v1
+  with:
+    path: build/reports/jacoco/test/jacocoTestReport.xml
+    format: jacoco
+    threshold-line: 80
+    threshold-branch: 70
+
 ```
 
 ### Multiple Reports
