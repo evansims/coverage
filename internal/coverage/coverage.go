@@ -14,6 +14,16 @@ func Run() error {
 		return err
 	}
 
+	// Auto-discover coverage report if path not specified
+	if strings.TrimSpace(inp.Path) == "" {
+		discovered, err := DiscoverReport(inp.Format, inp.WorkDir)
+		if err != nil {
+			return err
+		}
+		inp.Path = discovered
+		EmitAnnotation("notice", fmt.Sprintf("auto-discovered %s report: %s", inp.Format, discovered))
+	}
+
 	reportPath := filepath.Join(inp.WorkDir, inp.Path)
 	data, err := os.ReadFile(reportPath)
 	if err != nil {
@@ -81,8 +91,14 @@ func Run() error {
 		EmitAnnotation("notice", msg)
 	}
 
+	// Compute suggestions if enabled
+	var suggestions []Suggestion
+	if inp.Suggestions && len(result.Files) > 0 {
+		suggestions = RankSuggestions(result.Files)
+	}
+
 	// Write job summary and outputs
-	if err := WriteJobSummary(results); err != nil {
+	if err := WriteJobSummary(results, suggestions); err != nil {
 		EmitAnnotation("warning", fmt.Sprintf("failed to write job summary: %v", err))
 	}
 

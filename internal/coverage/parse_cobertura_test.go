@@ -8,20 +8,22 @@ import (
 
 func TestParseCobertura(t *testing.T) {
 	tests := []struct {
-		name       string
-		fixture    string
-		wantLine   *Metric
-		wantBranch *Metric
-		wantErr    bool
+		name         string
+		fixture      string
+		wantLine     *Metric
+		wantBranch   *Metric
+		wantFunction *Metric
+		wantErr      bool
 	}{
 		{
-			name:       "basic coverage",
-			fixture:    "cobertura/basic.xml",
-			wantLine:   &Metric{Hit: 170, Total: 200},
-			wantBranch: &Metric{Hit: 35, Total: 50},
+			name:         "basic coverage with methods",
+			fixture:      "cobertura/basic.xml",
+			wantLine:     &Metric{Hit: 170, Total: 200},
+			wantBranch:   &Metric{Hit: 35, Total: 50},
+			wantFunction: &Metric{Hit: 2, Total: 3},
 		},
 		{
-			name:       "no branches",
+			name:       "no branches or methods",
 			fixture:    "cobertura/no_branches.xml",
 			wantLine:   &Metric{Hit: 90, Total: 100},
 			wantBranch: nil,
@@ -43,9 +45,7 @@ func TestParseCobertura(t *testing.T) {
 			}
 			assertMetric(t, "line", result.Line, tt.wantLine)
 			assertMetric(t, "branch", result.Branch, tt.wantBranch)
-			if result.Function != nil {
-				t.Errorf("function: expected nil for cobertura, got %+v", result.Function)
-			}
+			assertMetric(t, "function", result.Function, tt.wantFunction)
 		})
 	}
 }

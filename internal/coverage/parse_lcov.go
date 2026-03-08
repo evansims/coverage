@@ -17,9 +17,30 @@ func parseLcov(data []byte) (*CoverageResult, error) {
 	var hasBranch, hasFunc bool
 	var hasRecords bool
 
+	// Per-file tracking
+	var currentFile string
+	var fileLine, fileBranch, fileFunc *Metric
+	var files []FileCoverage
+
+	flushFile := func() {
+		if currentFile == "" {
+			return
+		}
+		fc := FileCoverage{Path: currentFile, Line: fileLine, Branch: fileBranch, Function: fileFunc}
+		files = append(files, fc)
+		fileLine = nil
+		fileBranch = nil
+		fileFunc = nil
+		currentFile = ""
+	}
+
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
-		if line == "" || line == "end_of_record" {
+		if line == "" {
+			continue
+		}
+		if line == "end_of_record" {
+			flushFile()
 			continue
 		}
 
@@ -32,6 +53,8 @@ func parseLcov(data []byte) (*CoverageResult, error) {
 		val := parts[1]
 
 		switch key {
+		case "SF":
+			currentFile = val
 		case "LF":
 			n, err := strconv.ParseInt(val, 10, 64)
 			if err != nil {
@@ -39,12 +62,20 @@ func parseLcov(data []byte) (*CoverageResult, error) {
 			}
 			lineFnd += n
 			hasRecords = true
+			if fileLine == nil {
+				fileLine = &Metric{}
+			}
+			fileLine.Total = n
 		case "LH":
 			n, err := strconv.ParseInt(val, 10, 64)
 			if err != nil {
 				return nil, fmt.Errorf("parsing LH value %q: %w", val, err)
 			}
 			lineHit += n
+			if fileLine == nil {
+				fileLine = &Metric{}
+			}
+			fileLine.Hit = n
 		case "BRF":
 			n, err := strconv.ParseInt(val, 10, 64)
 			if err != nil {
@@ -52,12 +83,20 @@ func parseLcov(data []byte) (*CoverageResult, error) {
 			}
 			branchFnd += n
 			hasBranch = true
+			if fileBranch == nil {
+				fileBranch = &Metric{}
+			}
+			fileBranch.Total = n
 		case "BRH":
 			n, err := strconv.ParseInt(val, 10, 64)
 			if err != nil {
 				return nil, fmt.Errorf("parsing BRH value %q: %w", val, err)
 			}
 			branchHit += n
+			if fileBranch == nil {
+				fileBranch = &Metric{}
+			}
+			fileBranch.Hit = n
 		case "FNF":
 			n, err := strconv.ParseInt(val, 10, 64)
 			if err != nil {
@@ -65,14 +104,25 @@ func parseLcov(data []byte) (*CoverageResult, error) {
 			}
 			funcFnd += n
 			hasFunc = true
+			if fileFunc == nil {
+				fileFunc = &Metric{}
+			}
+			fileFunc.Total = n
 		case "FNH":
 			n, err := strconv.ParseInt(val, 10, 64)
 			if err != nil {
 				return nil, fmt.Errorf("parsing FNH value %q: %w", val, err)
 			}
 			funcHit += n
+			if fileFunc == nil {
+				fileFunc = &Metric{}
+			}
+			fileFunc.Hit = n
 		}
 	}
+
+	// Flush last file if no trailing end_of_record
+	flushFile()
 
 	if err := scanner.Err(); err != nil {
 		return nil, fmt.Errorf("reading lcov data: %w", err)
@@ -83,7 +133,8 @@ func parseLcov(data []byte) (*CoverageResult, error) {
 	}
 
 	result := &CoverageResult{
-		Line: &Metric{Hit: lineHit, Total: lineFnd},
+		Line:  &Metric{Hit: lineHit, Total: lineFnd},
+		Files: files,
 	}
 	if hasBranch {
 		result.Branch = &Metric{Hit: branchHit, Total: branchFnd}

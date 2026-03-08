@@ -13,6 +13,15 @@ type CoverageResult struct {
 	Line     *Metric
 	Branch   *Metric
 	Function *Metric
+	Files    []FileCoverage
+}
+
+// FileCoverage holds per-file coverage metrics for suggestions.
+type FileCoverage struct {
+	Path     string
+	Line     *Metric
+	Branch   *Metric
+	Function *Metric
 }
 
 // Metric holds hit/total counts for a coverage metric.

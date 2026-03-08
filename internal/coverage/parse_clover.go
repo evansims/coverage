@@ -11,6 +11,18 @@ type cloverCoverage struct {
 }
 
 type cloverProject struct {
+	Metrics  cloverMetrics  `xml:"metrics"`
+	Packages []cloverPkg    `xml:"package"`
+	Files    []cloverFile   `xml:"file"`
+}
+
+type cloverPkg struct {
+	Files []cloverFile `xml:"file"`
+}
+
+type cloverFile struct {
+	Name    string        `xml:"name,attr"`
+	Path    string        `xml:"path,attr"`
 	Metrics cloverMetrics `xml:"metrics"`
 }
 
@@ -45,6 +57,35 @@ func parseClover(data []byte) (*CoverageResult, error) {
 
 	if m.Methods > 0 {
 		result.Function = &Metric{Hit: m.CoveredMethods, Total: m.Methods}
+	}
+
+	// Collect per-file metrics from packages and top-level files
+	var allFiles []cloverFile
+	for _, pkg := range cov.Project.Packages {
+		allFiles = append(allFiles, pkg.Files...)
+	}
+	allFiles = append(allFiles, cov.Project.Files...)
+
+	for _, f := range allFiles {
+		name := f.Path
+		if name == "" {
+			name = f.Name
+		}
+		if name == "" || f.Metrics.Statements == 0 {
+			continue
+		}
+
+		fc := FileCoverage{
+			Path: name,
+			Line: &Metric{Hit: f.Metrics.CoveredStatements, Total: f.Metrics.Statements},
+		}
+		if f.Metrics.Conditionals > 0 {
+			fc.Branch = &Metric{Hit: f.Metrics.CoveredConditionals, Total: f.Metrics.Conditionals}
+		}
+		if f.Metrics.Methods > 0 {
+			fc.Function = &Metric{Hit: f.Metrics.CoveredMethods, Total: f.Metrics.Methods}
+		}
+		result.Files = append(result.Files, fc)
 	}
 
 	return result, nil

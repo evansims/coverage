@@ -4,8 +4,9 @@ author: 'evansims'
 
 inputs:
   path:
-    description: 'Path to coverage report file'
-    required: true
+    description: 'Path to coverage report file (auto-discovered if omitted)'
+    required: false
+    default: ''
   format:
     description: 'Coverage format: lcov, gocover, cobertura, clover, or jacoco'
     required: true
@@ -28,6 +29,10 @@ inputs:
     default: '.'
   fail-on-error:
     description: 'Whether to fail the action when thresholds are not met'
+    required: false
+    default: 'true'
+  suggestions:
+    description: 'Show top opportunities for coverage improvement in job summary'
     required: false
     default: 'true'
 
@@ -93,4 +98,5 @@ runs:
         INPUT_THRESHOLD-FUNCTION: ${{ inputs.threshold-function }}
         INPUT_WORKING-DIRECTORY: ${{ inputs.working-directory }}
         INPUT_FAIL-ON-ERROR: ${{ inputs.fail-on-error }}
+        INPUT_SUGGESTIONS: ${{ inputs.suggestions }}
       run: coverlint

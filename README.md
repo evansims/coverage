@@ -28,18 +28,31 @@ Add to your workflow after your test step:
 
 ### Inputs
 
-| Input                | Default | Required | Description                                          |
-| -------------------- | ------- | -------- | ---------------------------------------------------- |
-| `path`               |         | yes      | Path to coverage report file                         |
+| Input                | Default | Required | Description                                                |
+| -------------------- | ------- | -------- | ---------------------------------------------------------- |
 | `format`             |         | yes      | One of: `lcov`, `gocover`, `cobertura`, `clover`, `jacoco` |
-| `name`               | format  | no       | Display name for annotations                         |
-| `threshold-line`     |         | no*      | Minimum line coverage percentage (0-100)             |
-| `threshold-branch`   |         | no*      | Minimum branch coverage percentage (0-100)           |
-| `threshold-function` |         | no*      | Minimum function coverage percentage (0-100)         |
-| `working-directory`  | `.`     | no       | Working directory for resolving relative paths       |
-| `fail-on-error`      | `true`  | no       | Fail the action when thresholds are not met          |
+| `path`               |         | no       | Path to coverage report file (auto-discovered if omitted)  |
+| `name`               | format  | no       | Display name for annotations                               |
+| `threshold-line`     |         | no\*     | Minimum line coverage percentage (0-100)                   |
+| `threshold-branch`   |         | no\*     | Minimum branch coverage percentage (0-100)                 |
+| `threshold-function` |         | no\*     | Minimum function coverage percentage (0-100)               |
+| `working-directory`  | `.`     | no       | Working directory for resolving relative paths             |
+| `fail-on-error`      | `true`  | no       | Fail the action when thresholds are not met                |
+| `suggestions`        | `true`  | no       | Show top coverage improvement opportunities in job summary |
 
-*At least one threshold is required.
+\*At least one threshold is required.
+
+### Auto-Discovery
+
+When `path` is omitted, coverlint searches for a coverage report in common default locations based on the `format`:
+
+| Format      | Searched Paths                                                                                  |
+| ----------- | ----------------------------------------------------------------------------------------------- |
+| `lcov`      | `coverage/lcov.info`, `lcov.info`, `coverage.lcov`                                              |
+| `gocover`   | `cover.out`, `coverage.out`, `c.out`                                                            |
+| `cobertura` | `coverage.xml`, `cobertura.xml`, `cobertura-coverage.xml`                                       |
+| `clover`    | `coverage.xml`, `clover.xml`                                                                    |
+| `jacoco`    | `build/reports/jacoco/test/jacocoTestReport.xml`, `target/site/jacoco/jacoco.xml`, `jacoco.xml` |
 
 ### Outputs
 
@@ -128,7 +141,6 @@ If a threshold is configured but the coverage format doesn't report that metric 
     format: jacoco
     threshold-line: 80
     threshold-branch: 70
-
 ```
 
 ### Multiple Reports

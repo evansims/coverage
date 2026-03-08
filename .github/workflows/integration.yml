@@ -105,6 +105,7 @@ jobs:
           INPUT_NAME: python-integration
           INPUT_THRESHOLD-LINE: "100"
           INPUT_THRESHOLD-BRANCH: "100"
+          INPUT_THRESHOLD-FUNCTION: "100"
           INPUT_WORKING-DIRECTORY: testdata/projects/python
           INPUT_FAIL-ON-ERROR: "true"
         run: ./coverlint

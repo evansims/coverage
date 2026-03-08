@@ -31,12 +31,11 @@ func TestParseInputs(t *testing.T) {
 			},
 		},
 		{
-			name: "missing path",
+			name: "path optional",
 			env: map[string]string{
 				"INPUT_FORMAT":         "lcov",
 				"INPUT_THRESHOLD-LINE": "80",
 			},
-			wantErr: "path is required",
 		},
 		{
 			name: "missing format",
@@ -99,6 +98,7 @@ func TestParseInputs(t *testing.T) {
 				"INPUT_PATH", "INPUT_FORMAT", "INPUT_NAME",
 				"INPUT_WORKING-DIRECTORY", "INPUT_FAIL-ON-ERROR",
 				"INPUT_THRESHOLD-LINE", "INPUT_THRESHOLD-BRANCH", "INPUT_THRESHOLD-FUNCTION",
+				"INPUT_SUGGESTIONS",
 			} {
 				t.Setenv(key, "")
 			}

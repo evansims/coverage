@@ -9,12 +9,13 @@ import (
 
 // Input holds the parsed and validated action inputs.
 type Input struct {
-	Name         string
-	Path         string
-	Format       string
-	WorkDir      string
-	FailOnError  bool
-	Threshold    Threshold
+	Name        string
+	Path        string
+	Format      string
+	WorkDir     string
+	FailOnError bool
+	Suggestions bool
+	Threshold   Threshold
 }
 
 var validFormats = map[string]bool{
@@ -33,11 +34,9 @@ func ParseInputs() (*Input, error) {
 		Format:      getInput("FORMAT", ""),
 		WorkDir:     getInput("WORKING-DIRECTORY", "."),
 		FailOnError: getInput("FAIL-ON-ERROR", "true") == "true",
+		Suggestions: getInput("SUGGESTIONS", "true") == "true",
 	}
 
-	if strings.TrimSpace(inp.Path) == "" {
-		return nil, fmt.Errorf("input validation: path is required")
-	}
 	if strings.TrimSpace(inp.Format) == "" {
 		return nil, fmt.Errorf("input validation: format is required")
 	}

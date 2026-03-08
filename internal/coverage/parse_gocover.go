@@ -14,12 +14,17 @@ func parseGocover(data []byte) (*CoverageResult, error) {
 	var totalStmts, coveredStmts int64
 	var hasBlocks bool
 
+	// Per-file tracking
+	fileStmts := map[string]int64{}
+	fileCovered := map[string]int64{}
+
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" || strings.HasPrefix(line, "mode:") {
 			continue
 		}
 
+		// Format: file:start.col,end.col stmts count
 		lastSpace := strings.LastIndex(line, " ")
 		if lastSpace < 0 {
 			continue
@@ -32,6 +37,7 @@ func parseGocover(data []byte) (*CoverageResult, error) {
 			continue
 		}
 		stmtsStr := rest[secondLastSpace+1:]
+		blockRef := rest[:secondLastSpace]
 
 		stmts, err := strconv.ParseInt(stmtsStr, 10, 64)
 		if err != nil {
@@ -43,9 +49,18 @@ func parseGocover(data []byte) (*CoverageResult, error) {
 			return nil, fmt.Errorf("parsing execution count %q: %w", countStr, err)
 		}
 
+		// Extract file path (everything before the colon+position)
+		colonIdx := strings.LastIndex(blockRef, ":")
+		filePath := blockRef
+		if colonIdx > 0 {
+			filePath = blockRef[:colonIdx]
+		}
+
 		totalStmts += stmts
+		fileStmts[filePath] += stmts
 		if count > 0 {
 			coveredStmts += stmts
+			fileCovered[filePath] += stmts
 		}
 		hasBlocks = true
 	}
@@ -58,7 +73,16 @@ func parseGocover(data []byte) (*CoverageResult, error) {
 		return nil, fmt.Errorf("gocover: no coverage blocks found")
 	}
 
+	var files []FileCoverage
+	for path, total := range fileStmts {
+		files = append(files, FileCoverage{
+			Path: path,
+			Line: &Metric{Hit: fileCovered[path], Total: total},
+		})
+	}
+
 	return &CoverageResult{
-		Line: &Metric{Hit: coveredStmts, Total: totalStmts},
+		Line:  &Metric{Hit: coveredStmts, Total: totalStmts},
+		Files: files,
 	}, nil
 }

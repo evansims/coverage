@@ -22,7 +22,7 @@ func EmitAnnotation(level, message string) {
 }
 
 // WriteJobSummary writes a markdown coverage table to $GITHUB_STEP_SUMMARY.
-func WriteJobSummary(results []EntryResult) (err error) {
+func WriteJobSummary(results []EntryResult, suggestions []Suggestion) (err error) {
 	summaryPath := os.Getenv("GITHUB_STEP_SUMMARY")
 	if summaryPath == "" {
 		return nil // not running in GitHub Actions
@@ -47,6 +47,10 @@ func WriteJobSummary(results []EntryResult) (err error) {
 			r.Name, line, branch, function, status)
 	}
 	sb.WriteString("\n")
+
+	if suggestionsSection := FormatSuggestions(suggestions); suggestionsSection != "" {
+		sb.WriteString(suggestionsSection)
+	}
 
 	f, err := os.OpenFile(summaryPath, os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {

@@ -56,7 +56,7 @@ func TestWriteJobSummary(t *testing.T) {
 		},
 	}
 
-	if err := WriteJobSummary(results); err != nil {
+	if err := WriteJobSummary(results, nil); err != nil {
 		t.Fatalf("WriteJobSummary() error: %v", err)
 	}
 
@@ -106,7 +106,7 @@ func TestWriteOutputs(t *testing.T) {
 
 func TestWriteJobSummaryNoEnvVar(t *testing.T) {
 	t.Setenv("GITHUB_STEP_SUMMARY", "")
-	err := WriteJobSummary(nil)
+	err := WriteJobSummary(nil, nil)
 	if err != nil {
 		t.Fatalf("should not error when GITHUB_STEP_SUMMARY is empty: %v", err)
 	}
