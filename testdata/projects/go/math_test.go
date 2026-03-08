@@ -15,4 +15,7 @@ func TestIsPositive(t *testing.T) {
 	if IsPositive(-1) {
 		t.Error("expected false")
 	}
+	if IsPositive(0) {
+		t.Error("expected false")
+	}
 }

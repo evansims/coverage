@@ -41,7 +41,7 @@ jobs:
           INPUT_PATH: cover.out
           INPUT_FORMAT: gocover
           INPUT_NAME: go-integration
-          INPUT_THRESHOLD-LINE: "50"
+          INPUT_THRESHOLD-LINE: "100"
           INPUT_WORKING-DIRECTORY: testdata/projects/go
           INPUT_FAIL-ON-ERROR: "true"
         run: ./coverlint
@@ -72,7 +72,8 @@ jobs:
           INPUT_PATH: coverage/lcov.info
           INPUT_FORMAT: lcov
           INPUT_NAME: node-integration
-          INPUT_THRESHOLD-LINE: "50"
+          INPUT_THRESHOLD-LINE: "100"
+          INPUT_THRESHOLD-FUNCTION: "100"
           INPUT_WORKING-DIRECTORY: testdata/projects/node
           INPUT_FAIL-ON-ERROR: "true"
         run: ./coverlint
@@ -95,14 +96,15 @@ jobs:
 
       - name: Generate coverage
         working-directory: testdata/projects/python
-        run: pytest --cov=. --cov-report=xml:coverage.xml
+        run: pytest --cov=. --cov-branch --cov-report=xml:coverage.xml
 
       - name: Run coverlint
         env:
           INPUT_PATH: coverage.xml
           INPUT_FORMAT: cobertura
           INPUT_NAME: python-integration
-          INPUT_THRESHOLD-LINE: "50"
+          INPUT_THRESHOLD-LINE: "100"
+          INPUT_THRESHOLD-BRANCH: "100"
           INPUT_WORKING-DIRECTORY: testdata/projects/python
           INPUT_FAIL-ON-ERROR: "true"
         run: ./coverlint
@@ -127,6 +129,8 @@ jobs:
 
       - name: Generate coverage
         working-directory: testdata/projects/php
+        env:
+          XDEBUG_MODE: coverage
         run: vendor/bin/phpunit --coverage-clover=coverage.xml
 
       - name: Run coverlint
@@ -134,7 +138,9 @@ jobs:
           INPUT_PATH: coverage.xml
           INPUT_FORMAT: clover
           INPUT_NAME: php-integration
-          INPUT_THRESHOLD-LINE: "50"
+          INPUT_THRESHOLD-LINE: "100"
+          INPUT_THRESHOLD-BRANCH: "100"
+          INPUT_THRESHOLD-FUNCTION: "100"
           INPUT_WORKING-DIRECTORY: testdata/projects/php
           INPUT_FAIL-ON-ERROR: "true"
         run: ./coverlint
@@ -163,7 +169,9 @@ jobs:
           INPUT_PATH: build/reports/jacoco/test/jacocoTestReport.xml
           INPUT_FORMAT: jacoco
           INPUT_NAME: java-integration
-          INPUT_THRESHOLD-LINE: "50"
+          INPUT_THRESHOLD-LINE: "100"
+          INPUT_THRESHOLD-BRANCH: "100"
+          INPUT_THRESHOLD-FUNCTION: "100"
           INPUT_WORKING-DIRECTORY: testdata/projects/java
           INPUT_FAIL-ON-ERROR: "true"
         run: ./coverlint
@@ -184,14 +192,15 @@ jobs:
 
       - name: Generate coverage
         working-directory: testdata/projects/rust
-        run: cargo llvm-cov --lcov --output-path lcov.info
+        run: cargo llvm-cov --lcov --branch --output-path lcov.info
 
       - name: Run coverlint
         env:
           INPUT_PATH: lcov.info
           INPUT_FORMAT: lcov
           INPUT_NAME: rust-integration
-          INPUT_THRESHOLD-LINE: "50"
+          INPUT_THRESHOLD-LINE: "100"
+          INPUT_THRESHOLD-FUNCTION: "100"
           INPUT_WORKING-DIRECTORY: testdata/projects/rust
           INPUT_FAIL-ON-ERROR: "true"
         run: ./coverlint

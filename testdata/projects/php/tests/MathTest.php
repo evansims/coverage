@@ -18,5 +18,6 @@ class MathTest extends TestCase
         $math = new Math();
         $this->assertTrue($math->isPositive(1));
         $this->assertFalse($math->isPositive(-1));
+        $this->assertFalse($math->isPositive(0));
     }
 }

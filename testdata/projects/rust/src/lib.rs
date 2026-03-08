@@ -22,5 +22,6 @@ mod tests {
     fn test_is_positive() {
         assert!(is_positive(1));
         assert!(!is_positive(-1));
+        assert!(!is_positive(0));
     }
 }
