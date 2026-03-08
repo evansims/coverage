@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<report name="MyProject">
+  <package name="com/example">
+    <class name="com/example/Foo" sourcefilename="Foo.java">
+      <counter type="LINE" missed="3" covered="20"/>
+      <counter type="BRANCH" missed="2" covered="10"/>
+      <counter type="METHOD" missed="1" covered="5"/>
+    </class>
+  </package>
+  <counter type="INSTRUCTION" missed="10" covered="100"/>
+  <counter type="BRANCH" missed="5" covered="35"/>
+  <counter type="LINE" missed="8" covered="170"/>
+  <counter type="COMPLEXITY" missed="6" covered="30"/>
+  <counter type="METHOD" missed="3" covered="32"/>
+  <counter type="CLASS" missed="1" covered="10"/>
+</report>
