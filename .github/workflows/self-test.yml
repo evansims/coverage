@@ -19,7 +19,7 @@ jobs:
         run: go test -coverprofile=cover.out ./...
 
       - name: Build coverage binary
-        run: go build -o coverage-bin ./cmd/coverage
+        run: go build -o coverlint-bin ./cmd/coverlint
 
       - name: Create test config
         run: |
@@ -28,7 +28,7 @@ jobs:
             "version": 1,
             "coverage": [
               {
-                "name": "coverage-action",
+                "name": "coverlint",
                 "path": "cover.out",
                 "format": "gocover",
                 "threshold": {
@@ -44,4 +44,4 @@ jobs:
           INPUT_CONFIG: coverage.json
           INPUT_WORKING-DIRECTORY: "."
           INPUT_FAIL-ON-ERROR: "true"
-        run: ./coverage-bin
+        run: ./coverlint-bin

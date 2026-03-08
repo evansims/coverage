@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/evansims/coverage/internal/coverage"
+	"github.com/evansims/coverlint/internal/coverage"
 )
 
 func main() {

@@ -1,4 +1,4 @@
-# Coverage
+# Coverlint
 
 A self-contained GitHub Action that enforces coverage thresholds on pull requests. Parses coverage reports, compares against configurable thresholds, and reports results as GitHub Actions annotations and job summaries.
 
@@ -6,37 +6,37 @@ No external services. No GitHub API tokens. No PR comments. Just pass/fail.
 
 ## Supported Formats
 
-| Format | Flag | Typical Producer |
-|--------|------|------------------|
-| LCOV | `lcov` | `cargo llvm-cov`, `c8`, `istanbul`, `jest`, `vitest` |
-| Go cover profile | `gocover` | `go test -coverprofile` |
-| Cobertura XML | `cobertura` | `pytest-cov`, `istanbul`, `cargo tarpaulin` |
-| Clover XML | `clover` | `phpunit`, some JS tools |
-| JaCoCo XML | `jacoco` | Gradle/Maven JaCoCo plugin |
+| Format           | Flag        | Typical Producer                                     |
+| ---------------- | ----------- | ---------------------------------------------------- |
+| LCOV             | `lcov`      | `cargo llvm-cov`, `c8`, `istanbul`, `jest`, `vitest` |
+| Go cover profile | `gocover`   | `go test -coverprofile`                              |
+| Cobertura XML    | `cobertura` | `pytest-cov`, `istanbul`, `cargo tarpaulin`          |
+| Clover XML       | `clover`    | `phpunit`, some JS tools                             |
+| JaCoCo XML       | `jacoco`    | Gradle/Maven JaCoCo plugin                           |
 
 ## Installation
 
 Add to your workflow after your test step:
 
 ```yaml
-- uses: evansims/coverage@v1
+- uses: evansims/coverlint@v1
 ```
 
 The action reads `coverage.json` from your repo root by default.
 
 ### Inputs
 
-| Input | Default | Description |
-|-------|---------|-------------|
-| `config` | `coverage.json` | Path to config file, relative to working directory |
-| `working-directory` | `.` | Working directory for resolving relative paths |
-| `fail-on-error` | `true` | Fail the action when thresholds are not met |
+| Input               | Default         | Description                                        |
+| ------------------- | --------------- | -------------------------------------------------- |
+| `config`            | `coverage.json` | Path to config file, relative to working directory |
+| `working-directory` | `.`             | Working directory for resolving relative paths     |
+| `fail-on-error`     | `true`          | Fail the action when thresholds are not met        |
 
 ### Outputs
 
-| Output | Description |
-|--------|-------------|
-| `passed` | `true` or `false` |
+| Output    | Description                              |
+| --------- | ---------------------------------------- |
+| `passed`  | `true` or `false`                        |
 | `results` | JSON array of per-entry coverage results |
 
 ## Configuration
@@ -65,26 +65,26 @@ Create a `coverage.json` in your repo root:
 
 **Top-level:**
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `version` | integer | yes | Schema version, currently `1` |
-| `coverage` | array | yes | List of coverage entries |
+| Field      | Type    | Required | Description                   |
+| ---------- | ------- | -------- | ----------------------------- |
+| `version`  | integer | yes      | Schema version, currently `1` |
+| `coverage` | array   | yes      | List of coverage entries      |
 
 **Each coverage entry:**
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `name` | string | yes | Display name for annotations |
-| `path` | string | yes | Path to coverage report file |
-| `format` | string | yes | One of: `lcov`, `gocover`, `cobertura`, `clover`, `jacoco` |
-| `threshold` | object | yes | At least one threshold must be set |
+| Field       | Type   | Required | Description                                                |
+| ----------- | ------ | -------- | ---------------------------------------------------------- |
+| `name`      | string | yes      | Display name for annotations                               |
+| `path`      | string | yes      | Path to coverage report file                               |
+| `format`    | string | yes      | One of: `lcov`, `gocover`, `cobertura`, `clover`, `jacoco` |
+| `threshold` | object | yes      | At least one threshold must be set                         |
 
 **Threshold fields (all optional, but at least one required):**
 
-| Field | Type | Range | Description |
-|-------|------|-------|-------------|
-| `line` | number | 0-100 | Minimum line coverage percentage |
-| `branch` | number | 0-100 | Minimum branch coverage percentage |
+| Field      | Type   | Range | Description                          |
+| ---------- | ------ | ----- | ------------------------------------ |
+| `line`     | number | 0-100 | Minimum line coverage percentage     |
+| `branch`   | number | 0-100 | Minimum branch coverage percentage   |
 | `function` | number | 0-100 | Minimum function coverage percentage |
 
 If a threshold is configured but the coverage format doesn't report that metric (e.g., `branch` with `gocover`), the threshold is skipped and a notice annotation is emitted.
@@ -107,9 +107,9 @@ jobs:
 
       - run: go test -coverprofile=cover.out ./...
 
-      - uses: evansims/coverage@v1
+      - uses: evansims/coverlint@v1
         with:
-          fail-on-error: 'true'
+          fail-on-error: "true"
 ```
 
 ### Multiple Reports
@@ -137,8 +137,8 @@ jobs:
 ## Contributing
 
 ```bash
-git clone https://github.com/evansims/coverage.git
-cd coverage
+git clone https://github.com/evansims/coverlint.git
+cd coverlint
 go test ./...
 ```
 
@@ -149,7 +149,7 @@ The project uses standard Go tooling:
 - `go test ./...` runs all tests
 - `go test -race -cover ./...` runs tests with race detection and coverage
 - `go vet ./...` runs static analysis
-- `go build ./cmd/coverage` builds the binary
+- `go build ./cmd/coverlint` builds the binary
 
 ### Making Changes
 

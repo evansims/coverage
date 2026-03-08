@@ -1,9 +1,9 @@
 version: 2
 
 builds:
-  - id: coverage
-    main: ./cmd/coverage
-    binary: coverage
+  - id: coverlint
+    main: ./cmd/coverlint
+    binary: coverlint
     env:
       - CGO_ENABLED=0
     goos:

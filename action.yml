@@ -1,4 +1,4 @@
-name: 'Coverage Check'
+name: 'Coverlint'
 description: 'Parse coverage reports and enforce thresholds via GitHub Actions annotations'
 author: 'evansims'
 
@@ -45,8 +45,8 @@ runs:
         esac
 
         version="${{ github.action_ref }}"
-        repo="evansims/coverage"
-        binary="coverage"
+        repo="evansims/coverlint"
+        binary="coverlint"
         ext="tar.gz"
         if [[ "$os" == "windows" ]]; then ext="zip"; fi
 
@@ -73,4 +73,4 @@ runs:
         INPUT_CONFIG: ${{ inputs.config }}
         INPUT_WORKING-DIRECTORY: ${{ inputs.working-directory }}
         INPUT_FAIL-ON-ERROR: ${{ inputs.fail-on-error }}
-      run: coverage
+      run: coverlint
