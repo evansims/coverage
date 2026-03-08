@@ -1,0 +1,76 @@
+name: 'Coverage Check'
+description: 'Parse coverage reports and enforce thresholds via GitHub Actions annotations'
+author: 'evansims'
+
+inputs:
+  config:
+    description: 'Path to coverage config file, relative to working directory'
+    required: false
+    default: 'coverage.json'
+  working-directory:
+    description: 'Working directory for resolving relative paths'
+    required: false
+    default: '.'
+  fail-on-error:
+    description: 'Whether to fail the action when thresholds are not met'
+    required: false
+    default: 'true'
+
+outputs:
+  results:
+    description: 'JSON string of coverage results per entry'
+    value: ${{ steps.run.outputs.results }}
+  passed:
+    description: 'Whether all thresholds were met (true or false)'
+    value: ${{ steps.run.outputs.passed }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Download coverage binary
+      shell: bash
+      run: |
+        os="${{ runner.os }}"
+        arch="${{ runner.arch }}"
+
+        case "$os" in
+          macOS)  os="darwin" ;;
+          Linux)  os="linux" ;;
+          Windows) os="windows" ;;
+        esac
+
+        case "$arch" in
+          X64)   arch="amd64" ;;
+          ARM64) arch="arm64" ;;
+        esac
+
+        version="${{ github.action_ref }}"
+        repo="evansims/coverage"
+        binary="coverage"
+        ext="tar.gz"
+        if [[ "$os" == "windows" ]]; then ext="zip"; fi
+
+        url="https://github.com/${repo}/releases/download/${version}/${binary}_${os}_${arch}.${ext}"
+
+        echo "Downloading ${url}"
+        tmpdir=$(mktemp -d)
+        cd "$tmpdir"
+
+        if [[ "$ext" == "zip" ]]; then
+          curl -fsL "$url" -o archive.zip
+          unzip -q archive.zip
+        else
+          curl -fsL "$url" | tar xzf -
+        fi
+
+        chmod +x "${binary}"*
+        echo "${tmpdir}" >> "$GITHUB_PATH"
+
+    - name: Run coverage check
+      id: run
+      shell: bash
+      env:
+        INPUT_CONFIG: ${{ inputs.config }}
+        INPUT_WORKING-DIRECTORY: ${{ inputs.working-directory }}
+        INPUT_FAIL-ON-ERROR: ${{ inputs.fail-on-error }}
+      run: coverage
