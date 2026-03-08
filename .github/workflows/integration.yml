@@ -1,0 +1,197 @@
+name: Integration Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-coverlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - run: go build -o coverlint ./cmd/coverlint
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverlint-binary
+          path: coverlint
+
+  test-gocover:
+    needs: build-coverlint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - uses: actions/download-artifact@v4
+        with:
+          name: coverlint-binary
+      - run: chmod +x coverlint
+
+      - name: Generate coverage
+        working-directory: testdata/projects/go
+        run: go test -coverprofile=cover.out ./...
+
+      - name: Run coverlint
+        env:
+          INPUT_PATH: cover.out
+          INPUT_FORMAT: gocover
+          INPUT_NAME: go-integration
+          INPUT_THRESHOLD-LINE: "50"
+          INPUT_WORKING-DIRECTORY: testdata/projects/go
+          INPUT_FAIL-ON-ERROR: "true"
+        run: ./coverlint
+
+  test-lcov-node:
+    needs: build-coverlint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/download-artifact@v4
+        with:
+          name: coverlint-binary
+      - run: chmod +x coverlint
+
+      - name: Install dependencies
+        working-directory: testdata/projects/node
+        run: npm install
+
+      - name: Generate coverage
+        working-directory: testdata/projects/node
+        run: npm test
+
+      - name: Run coverlint
+        env:
+          INPUT_PATH: coverage/lcov.info
+          INPUT_FORMAT: lcov
+          INPUT_NAME: node-integration
+          INPUT_THRESHOLD-LINE: "50"
+          INPUT_WORKING-DIRECTORY: testdata/projects/node
+          INPUT_FAIL-ON-ERROR: "true"
+        run: ./coverlint
+
+  test-cobertura-python:
+    needs: build-coverlint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: actions/download-artifact@v4
+        with:
+          name: coverlint-binary
+      - run: chmod +x coverlint
+
+      - name: Install dependencies
+        run: pip install pytest pytest-cov
+
+      - name: Generate coverage
+        working-directory: testdata/projects/python
+        run: pytest --cov=. --cov-report=xml:coverage.xml
+
+      - name: Run coverlint
+        env:
+          INPUT_PATH: coverage.xml
+          INPUT_FORMAT: cobertura
+          INPUT_NAME: python-integration
+          INPUT_THRESHOLD-LINE: "50"
+          INPUT_WORKING-DIRECTORY: testdata/projects/python
+          INPUT_FAIL-ON-ERROR: "true"
+        run: ./coverlint
+
+  test-clover-php:
+    needs: build-coverlint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          coverage: xdebug
+      - uses: actions/download-artifact@v4
+        with:
+          name: coverlint-binary
+      - run: chmod +x coverlint
+
+      - name: Install dependencies
+        working-directory: testdata/projects/php
+        run: composer install --no-interaction
+
+      - name: Generate coverage
+        working-directory: testdata/projects/php
+        run: vendor/bin/phpunit --coverage-clover=coverage.xml
+
+      - name: Run coverlint
+        env:
+          INPUT_PATH: coverage.xml
+          INPUT_FORMAT: clover
+          INPUT_NAME: php-integration
+          INPUT_THRESHOLD-LINE: "50"
+          INPUT_WORKING-DIRECTORY: testdata/projects/php
+          INPUT_FAIL-ON-ERROR: "true"
+        run: ./coverlint
+
+  test-jacoco-java:
+    needs: build-coverlint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: coverlint-binary
+      - run: chmod +x coverlint
+
+      - name: Generate coverage
+        working-directory: testdata/projects/java
+        run: gradle test jacocoTestReport
+
+      - name: Run coverlint
+        env:
+          INPUT_PATH: build/reports/jacoco/test/jacocoTestReport.xml
+          INPUT_FORMAT: jacoco
+          INPUT_NAME: java-integration
+          INPUT_THRESHOLD-LINE: "50"
+          INPUT_WORKING-DIRECTORY: testdata/projects/java
+          INPUT_FAIL-ON-ERROR: "true"
+        run: ./coverlint
+
+  test-lcov-rust:
+    needs: build-coverlint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+      - run: cargo install cargo-llvm-cov
+      - uses: actions/download-artifact@v4
+        with:
+          name: coverlint-binary
+      - run: chmod +x coverlint
+
+      - name: Generate coverage
+        working-directory: testdata/projects/rust
+        run: cargo llvm-cov --lcov --output-path lcov.info
+
+      - name: Run coverlint
+        env:
+          INPUT_PATH: lcov.info
+          INPUT_FORMAT: lcov
+          INPUT_NAME: rust-integration
+          INPUT_THRESHOLD-LINE: "50"
+          INPUT_WORKING-DIRECTORY: testdata/projects/rust
+          INPUT_FAIL-ON-ERROR: "true"
+        run: ./coverlint
