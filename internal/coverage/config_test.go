@@ -91,6 +91,16 @@ func TestLoadConfigValidation(t *testing.T) {
 			json:    `{"version":1,"coverage":[{"name":"x","path":"x","format":"lcov","threshold":{}}]}`,
 			wantErr: "threshold",
 		},
+		{
+			name:    "negative threshold",
+			json:    `{"version":1,"coverage":[{"name":"x","path":"x","format":"lcov","threshold":{"line":-5}}]}`,
+			wantErr: "between 0 and 100",
+		},
+		{
+			name:    "threshold over 100",
+			json:    `{"version":1,"coverage":[{"name":"x","path":"x","format":"lcov","threshold":{"line":200}}]}`,
+			wantErr: "between 0 and 100",
+		},
 	}
 
 	for _, tt := range tests {

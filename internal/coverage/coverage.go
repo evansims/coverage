@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // Run is the main entry point for the coverage action.
@@ -88,7 +89,7 @@ func Run() error {
 			if r.Function != nil {
 				parts = append(parts, fmt.Sprintf("function %.1f%%", *r.Function))
 			}
-			msg := fmt.Sprintf("%s: %s — all thresholds met", r.Name, joinParts(parts))
+			msg := fmt.Sprintf("%s: %s — all thresholds met", r.Name, strings.Join(parts, ", "))
 			EmitAnnotation("notice", msg)
 		}
 	}
@@ -121,17 +122,6 @@ func getInput(name, defaultVal string) string {
 	return val
 }
 
-func joinParts(parts []string) string {
-	result := ""
-	for i, p := range parts {
-		if i > 0 {
-			result += ", "
-		}
-		result += p
-	}
-	return result
-}
-
 func joinUnique(items []string) string {
 	seen := map[string]bool{}
 	unique := []string{}
@@ -141,5 +131,5 @@ func joinUnique(items []string) string {
 			unique = append(unique, item)
 		}
 	}
-	return joinParts(unique)
+	return strings.Join(unique, ", ")
 }

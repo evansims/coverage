@@ -59,7 +59,26 @@ func validateConfig(cfg *Config) error {
 		if entry.Threshold.Line == nil && entry.Threshold.Branch == nil && entry.Threshold.Function == nil {
 			return fmt.Errorf("config validation: coverage[%d].threshold must set at least one of line, branch, or function", i)
 		}
+		if err := validateThresholdRange("line", entry.Threshold.Line, i); err != nil {
+			return err
+		}
+		if err := validateThresholdRange("branch", entry.Threshold.Branch, i); err != nil {
+			return err
+		}
+		if err := validateThresholdRange("function", entry.Threshold.Function, i); err != nil {
+			return err
+		}
 	}
 
+	return nil
+}
+
+func validateThresholdRange(metric string, val *float64, idx int) error {
+	if val == nil {
+		return nil
+	}
+	if *val < 0 || *val > 100 {
+		return fmt.Errorf("config validation: coverage[%d].threshold.%s must be between 0 and 100", idx, metric)
+	}
 	return nil
 }

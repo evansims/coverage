@@ -19,6 +19,10 @@ func parseCobertura(data []byte) (*CoverageResult, error) {
 		return nil, fmt.Errorf("parsing cobertura XML: %w", err)
 	}
 
+	if cov.LinesValid == 0 {
+		return nil, fmt.Errorf("cobertura: no line data found (is this a valid cobertura report?)")
+	}
+
 	result := &CoverageResult{
 		Line: &Metric{Hit: cov.LinesCovered, Total: cov.LinesValid},
 	}

@@ -31,6 +31,10 @@ func parseClover(data []byte) (*CoverageResult, error) {
 
 	m := cov.Project.Metrics
 
+	if m.Statements == 0 {
+		return nil, fmt.Errorf("clover: no statement data found (is this a valid clover report?)")
+	}
+
 	result := &CoverageResult{
 		Line: &Metric{Hit: m.CoveredStatements, Total: m.Statements},
 	}
