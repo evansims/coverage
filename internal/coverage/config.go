@@ -1,11 +1,21 @@
 package coverage
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 )
+
+// Input holds the parsed and validated action inputs.
+type Input struct {
+	Name         string
+	Path         string
+	Format       string
+	WorkDir      string
+	FailOnError  bool
+	Threshold    Threshold
+}
 
 var validFormats = map[string]bool{
 	"lcov":      true,
@@ -15,70 +25,70 @@ var validFormats = map[string]bool{
 	"jacoco":    true,
 }
 
-// LoadConfig reads and validates a coverage.json config file.
-func LoadConfig(path string) (*Config, error) {
-	data, err := os.ReadFile(path)
+// ParseInputs reads action inputs from INPUT_* environment variables and validates them.
+func ParseInputs() (*Input, error) {
+	inp := &Input{
+		Name:        getInput("NAME", ""),
+		Path:        getInput("PATH", ""),
+		Format:      getInput("FORMAT", ""),
+		WorkDir:     getInput("WORKING-DIRECTORY", "."),
+		FailOnError: getInput("FAIL-ON-ERROR", "true") == "true",
+	}
+
+	if strings.TrimSpace(inp.Path) == "" {
+		return nil, fmt.Errorf("input validation: path is required")
+	}
+	if strings.TrimSpace(inp.Format) == "" {
+		return nil, fmt.Errorf("input validation: format is required")
+	}
+	if !validFormats[inp.Format] {
+		return nil, fmt.Errorf("input validation: format %q is not valid (valid: lcov, gocover, cobertura, clover, jacoco)", inp.Format)
+	}
+
+	if inp.Name == "" {
+		inp.Name = inp.Format
+	}
+
+	line, err := parseOptionalFloat(os.Getenv("INPUT_THRESHOLD-LINE"))
 	if err != nil {
-		return nil, fmt.Errorf("reading config file: %w", err)
+		return nil, fmt.Errorf("input validation: threshold-line: %w", err)
+	}
+	branch, err := parseOptionalFloat(os.Getenv("INPUT_THRESHOLD-BRANCH"))
+	if err != nil {
+		return nil, fmt.Errorf("input validation: threshold-branch: %w", err)
+	}
+	function, err := parseOptionalFloat(os.Getenv("INPUT_THRESHOLD-FUNCTION"))
+	if err != nil {
+		return nil, fmt.Errorf("input validation: threshold-function: %w", err)
 	}
 
-	var cfg Config
-	if err := json.Unmarshal(data, &cfg); err != nil {
-		return nil, fmt.Errorf("parsing config JSON: %w", err)
+	if line == nil && branch == nil && function == nil {
+		return nil, fmt.Errorf("input validation: at least one threshold (threshold-line, threshold-branch, threshold-function) is required")
 	}
 
-	if err := validateConfig(&cfg); err != nil {
-		return nil, err
-	}
-
-	return &cfg, nil
+	inp.Threshold = Threshold{Line: line, Branch: branch, Function: function}
+	return inp, nil
 }
 
-func validateConfig(cfg *Config) error {
-	if cfg.Version == 0 {
-		return fmt.Errorf("config validation: version is required")
+func parseOptionalFloat(s string) (*float64, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return nil, nil
 	}
-
-	if len(cfg.Coverage) == 0 {
-		return fmt.Errorf("config validation: coverage array must not be empty")
+	v, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		return nil, fmt.Errorf("%q is not a valid number", s)
 	}
-
-	for i, entry := range cfg.Coverage {
-		if strings.TrimSpace(entry.Name) == "" {
-			return fmt.Errorf("config validation: coverage[%d].name is required", i)
-		}
-		if strings.TrimSpace(entry.Path) == "" {
-			return fmt.Errorf("config validation: coverage[%d].path is required", i)
-		}
-		if strings.TrimSpace(entry.Format) == "" {
-			return fmt.Errorf("config validation: coverage[%d].format is required", i)
-		}
-		if !validFormats[entry.Format] {
-			return fmt.Errorf("config validation: coverage[%d].format %q is not a valid format (valid: lcov, gocover, cobertura, clover, jacoco)", i, entry.Format)
-		}
-		if entry.Threshold.Line == nil && entry.Threshold.Branch == nil && entry.Threshold.Function == nil {
-			return fmt.Errorf("config validation: coverage[%d].threshold must set at least one of line, branch, or function", i)
-		}
-		if err := validateThresholdRange("line", entry.Threshold.Line, i); err != nil {
-			return err
-		}
-		if err := validateThresholdRange("branch", entry.Threshold.Branch, i); err != nil {
-			return err
-		}
-		if err := validateThresholdRange("function", entry.Threshold.Function, i); err != nil {
-			return err
-		}
+	if v < 0 || v > 100 {
+		return nil, fmt.Errorf("%.1f must be between 0 and 100", v)
 	}
-
-	return nil
+	return &v, nil
 }
 
-func validateThresholdRange(metric string, val *float64, idx int) error {
-	if val == nil {
-		return nil
+func getInput(name, defaultVal string) string {
+	val := os.Getenv("INPUT_" + name)
+	if val == "" {
+		return defaultVal
 	}
-	if *val < 0 || *val > 100 {
-		return fmt.Errorf("config validation: coverage[%d].threshold.%s must be between 0 and 100", idx, metric)
-	}
-	return nil
+	return val
 }

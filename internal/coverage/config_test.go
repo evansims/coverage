@@ -1,121 +1,159 @@
 package coverage
 
 import (
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 )
 
-func TestLoadConfig(t *testing.T) {
+func TestParseInputs(t *testing.T) {
 	tests := []struct {
-		name      string
-		fixture   string
-		wantErr   bool
-		wantCount int
+		name    string
+		env     map[string]string
+		wantErr string
 	}{
 		{
-			name:      "valid config",
-			fixture:   "valid_config.json",
-			wantCount: 2,
+			name: "valid minimal",
+			env: map[string]string{
+				"INPUT_PATH":           "cover.out",
+				"INPUT_FORMAT":         "gocover",
+				"INPUT_THRESHOLD-LINE": "80",
+			},
 		},
 		{
-			name:      "minimal config",
-			fixture:   "minimal_config.json",
-			wantCount: 1,
+			name: "valid all thresholds",
+			env: map[string]string{
+				"INPUT_PATH":               "lcov.info",
+				"INPUT_FORMAT":             "lcov",
+				"INPUT_NAME":               "backend",
+				"INPUT_THRESHOLD-LINE":     "80",
+				"INPUT_THRESHOLD-BRANCH":   "70",
+				"INPUT_THRESHOLD-FUNCTION": "75",
+			},
 		},
 		{
-			name:    "nonexistent file",
-			fixture: "nonexistent.json",
-			wantErr: true,
+			name: "missing path",
+			env: map[string]string{
+				"INPUT_FORMAT":         "lcov",
+				"INPUT_THRESHOLD-LINE": "80",
+			},
+			wantErr: "path is required",
+		},
+		{
+			name: "missing format",
+			env: map[string]string{
+				"INPUT_PATH":           "cover.out",
+				"INPUT_THRESHOLD-LINE": "80",
+			},
+			wantErr: "format is required",
+		},
+		{
+			name: "invalid format",
+			env: map[string]string{
+				"INPUT_PATH":           "cover.out",
+				"INPUT_FORMAT":         "invalid",
+				"INPUT_THRESHOLD-LINE": "80",
+			},
+			wantErr: "not valid",
+		},
+		{
+			name: "no thresholds",
+			env: map[string]string{
+				"INPUT_PATH":   "cover.out",
+				"INPUT_FORMAT": "gocover",
+			},
+			wantErr: "at least one threshold",
+		},
+		{
+			name: "negative threshold",
+			env: map[string]string{
+				"INPUT_PATH":           "cover.out",
+				"INPUT_FORMAT":         "lcov",
+				"INPUT_THRESHOLD-LINE": "-5",
+			},
+			wantErr: "between 0 and 100",
+		},
+		{
+			name: "threshold over 100",
+			env: map[string]string{
+				"INPUT_PATH":           "cover.out",
+				"INPUT_FORMAT":         "lcov",
+				"INPUT_THRESHOLD-LINE": "200",
+			},
+			wantErr: "between 0 and 100",
+		},
+		{
+			name: "non-numeric threshold",
+			env: map[string]string{
+				"INPUT_PATH":           "cover.out",
+				"INPUT_FORMAT":         "lcov",
+				"INPUT_THRESHOLD-LINE": "abc",
+			},
+			wantErr: "not a valid number",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			path := filepath.Join("..", "..", "testdata", tt.fixture)
-			cfg, err := LoadConfig(path)
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("LoadConfig() error = %v, wantErr %v", err, tt.wantErr)
+			// Clear all input env vars
+			for _, key := range []string{
+				"INPUT_PATH", "INPUT_FORMAT", "INPUT_NAME",
+				"INPUT_WORKING-DIRECTORY", "INPUT_FAIL-ON-ERROR",
+				"INPUT_THRESHOLD-LINE", "INPUT_THRESHOLD-BRANCH", "INPUT_THRESHOLD-FUNCTION",
+			} {
+				t.Setenv(key, "")
 			}
-			if !tt.wantErr {
-				if len(cfg.Coverage) != tt.wantCount {
-					t.Errorf("got %d coverage entries, want %d", len(cfg.Coverage), tt.wantCount)
+			for k, v := range tt.env {
+				t.Setenv(k, v)
+			}
+
+			inp, err := ParseInputs()
+			if tt.wantErr != "" {
+				if err == nil {
+					t.Fatal("expected error, got nil")
 				}
-				if cfg.Version != 1 {
-					t.Errorf("got version %d, want 1", cfg.Version)
+				if !strings.Contains(err.Error(), tt.wantErr) {
+					t.Errorf("error %q should contain %q", err.Error(), tt.wantErr)
 				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if inp.Path != tt.env["INPUT_PATH"] {
+				t.Errorf("path = %q, want %q", inp.Path, tt.env["INPUT_PATH"])
+			}
+			if inp.Format != tt.env["INPUT_FORMAT"] {
+				t.Errorf("format = %q, want %q", inp.Format, tt.env["INPUT_FORMAT"])
 			}
 		})
 	}
 }
 
-func TestLoadConfigValidation(t *testing.T) {
-	tests := []struct {
-		name    string
-		json    string
-		wantErr string
-	}{
-		{
-			name:    "missing version",
-			json:    `{"coverage":[{"name":"x","path":"x","format":"lcov","threshold":{"line":80}}]}`,
-			wantErr: "version",
-		},
-		{
-			name:    "empty coverage array",
-			json:    `{"version":1,"coverage":[]}`,
-			wantErr: "coverage",
-		},
-		{
-			name:    "missing name",
-			json:    `{"version":1,"coverage":[{"path":"x","format":"lcov","threshold":{"line":80}}]}`,
-			wantErr: "name",
-		},
-		{
-			name:    "missing path",
-			json:    `{"version":1,"coverage":[{"name":"x","format":"lcov","threshold":{"line":80}}]}`,
-			wantErr: "path",
-		},
-		{
-			name:    "missing format",
-			json:    `{"version":1,"coverage":[{"name":"x","path":"x","threshold":{"line":80}}]}`,
-			wantErr: "format",
-		},
-		{
-			name:    "invalid format",
-			json:    `{"version":1,"coverage":[{"name":"x","path":"x","format":"invalid","threshold":{"line":80}}]}`,
-			wantErr: "format",
-		},
-		{
-			name:    "no thresholds set",
-			json:    `{"version":1,"coverage":[{"name":"x","path":"x","format":"lcov","threshold":{}}]}`,
-			wantErr: "threshold",
-		},
-		{
-			name:    "negative threshold",
-			json:    `{"version":1,"coverage":[{"name":"x","path":"x","format":"lcov","threshold":{"line":-5}}]}`,
-			wantErr: "between 0 and 100",
-		},
-		{
-			name:    "threshold over 100",
-			json:    `{"version":1,"coverage":[{"name":"x","path":"x","format":"lcov","threshold":{"line":200}}]}`,
-			wantErr: "between 0 and 100",
-		},
+func TestParseInputsDefaults(t *testing.T) {
+	for _, key := range []string{
+		"INPUT_PATH", "INPUT_FORMAT", "INPUT_NAME",
+		"INPUT_WORKING-DIRECTORY", "INPUT_FAIL-ON-ERROR",
+		"INPUT_THRESHOLD-LINE", "INPUT_THRESHOLD-BRANCH", "INPUT_THRESHOLD-FUNCTION",
+	} {
+		t.Setenv(key, "")
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			path := filepath.Join(t.TempDir(), "coverage.json")
-			if err := os.WriteFile(path, []byte(tt.json), 0644); err != nil {
-				t.Fatal(err)
-			}
-			_, err := LoadConfig(path)
-			if err == nil {
-				t.Fatal("expected error, got nil")
-			}
-			if !strings.Contains(err.Error(), tt.wantErr) {
-				t.Errorf("error %q should mention %q", err.Error(), tt.wantErr)
-			}
-		})
+	t.Setenv("INPUT_PATH", "cover.out")
+	t.Setenv("INPUT_FORMAT", "gocover")
+	t.Setenv("INPUT_THRESHOLD-LINE", "80")
+
+	inp, err := ParseInputs()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if inp.Name != "gocover" {
+		t.Errorf("name should default to format, got %q", inp.Name)
+	}
+	if inp.WorkDir != "." {
+		t.Errorf("workdir should default to '.', got %q", inp.WorkDir)
+	}
+	if !inp.FailOnError {
+		t.Error("fail-on-error should default to true")
 	}
 }

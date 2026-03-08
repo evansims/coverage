@@ -3,10 +3,25 @@ description: 'Parse coverage reports and enforce thresholds via GitHub Actions a
 author: 'evansims'
 
 inputs:
-  config:
-    description: 'Path to coverage config file, relative to working directory'
+  path:
+    description: 'Path to coverage report file'
+    required: true
+  format:
+    description: 'Coverage format: lcov, gocover, cobertura, clover, or jacoco'
+    required: true
+  name:
+    description: 'Display name for annotations (defaults to format)'
     required: false
-    default: 'coverage.json'
+    default: ''
+  threshold-line:
+    description: 'Minimum line coverage percentage (0-100)'
+    required: false
+  threshold-branch:
+    description: 'Minimum branch coverage percentage (0-100)'
+    required: false
+  threshold-function:
+    description: 'Minimum function coverage percentage (0-100)'
+    required: false
   working-directory:
     description: 'Working directory for resolving relative paths'
     required: false
@@ -18,7 +33,7 @@ inputs:
 
 outputs:
   results:
-    description: 'JSON string of coverage results per entry'
+    description: 'JSON string of coverage results'
     value: ${{ steps.run.outputs.results }}
   passed:
     description: 'Whether all thresholds were met (true or false)'
@@ -27,7 +42,7 @@ outputs:
 runs:
   using: "composite"
   steps:
-    - name: Download coverage binary
+    - name: Download coverlint binary
       shell: bash
       run: |
         os="${{ runner.os }}"
@@ -70,7 +85,12 @@ runs:
       id: run
       shell: bash
       env:
-        INPUT_CONFIG: ${{ inputs.config }}
+        INPUT_PATH: ${{ inputs.path }}
+        INPUT_FORMAT: ${{ inputs.format }}
+        INPUT_NAME: ${{ inputs.name }}
+        INPUT_THRESHOLD-LINE: ${{ inputs.threshold-line }}
+        INPUT_THRESHOLD-BRANCH: ${{ inputs.threshold-branch }}
+        INPUT_THRESHOLD-FUNCTION: ${{ inputs.threshold-function }}
         INPUT_WORKING-DIRECTORY: ${{ inputs.working-directory }}
         INPUT_FAIL-ON-ERROR: ${{ inputs.fail-on-error }}
       run: coverlint

@@ -2,23 +2,9 @@ package coverage
 
 // Threshold defines coverage percentage thresholds.
 type Threshold struct {
-	Line     *float64 `json:"line,omitempty"`
-	Branch   *float64 `json:"branch,omitempty"`
-	Function *float64 `json:"function,omitempty"`
-}
-
-// CoverageEntry defines a single coverage report to check.
-type CoverageEntry struct {
-	Name      string    `json:"name"`
-	Path      string    `json:"path"`
-	Format    string    `json:"format"`
-	Threshold Threshold `json:"threshold"`
-}
-
-// Config is the top-level coverage.json schema.
-type Config struct {
-	Version  int             `json:"version"`
-	Coverage []CoverageEntry `json:"coverage"`
+	Line     *float64
+	Branch   *float64
+	Function *float64
 }
 
 // CoverageResult holds parsed coverage metrics from a report.

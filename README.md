@@ -14,23 +14,32 @@ No external services. No GitHub API tokens. No PR comments. Just pass/fail.
 | Clover XML       | `clover`    | `phpunit`, some JS tools                             |
 | JaCoCo XML       | `jacoco`    | Gradle/Maven JaCoCo plugin                           |
 
-## Installation
+## Usage
 
 Add to your workflow after your test step:
 
 ```yaml
 - uses: evansims/coverlint@v1
+  with:
+    path: cover.out
+    format: gocover
+    threshold-line: 80
 ```
-
-The action reads `coverage.json` from your repo root by default.
 
 ### Inputs
 
-| Input               | Default         | Description                                        |
-| ------------------- | --------------- | -------------------------------------------------- |
-| `config`            | `coverage.json` | Path to config file, relative to working directory |
-| `working-directory` | `.`             | Working directory for resolving relative paths     |
-| `fail-on-error`     | `true`          | Fail the action when thresholds are not met        |
+| Input                | Default | Required | Description                                          |
+| -------------------- | ------- | -------- | ---------------------------------------------------- |
+| `path`               |         | yes      | Path to coverage report file                         |
+| `format`             |         | yes      | One of: `lcov`, `gocover`, `cobertura`, `clover`, `jacoco` |
+| `name`               | format  | no       | Display name for annotations                         |
+| `threshold-line`     |         | no*      | Minimum line coverage percentage (0-100)             |
+| `threshold-branch`   |         | no*      | Minimum branch coverage percentage (0-100)           |
+| `threshold-function` |         | no*      | Minimum function coverage percentage (0-100)         |
+| `working-directory`  | `.`     | no       | Working directory for resolving relative paths       |
+| `fail-on-error`      | `true`  | no       | Fail the action when thresholds are not met          |
+
+*At least one threshold is required.
 
 ### Outputs
 
@@ -39,55 +48,7 @@ The action reads `coverage.json` from your repo root by default.
 | `passed`  | `true` or `false`                        |
 | `results` | JSON array of per-entry coverage results |
 
-## Configuration
-
-Create a `coverage.json` in your repo root:
-
-```json
-{
-  "version": 1,
-  "coverage": [
-    {
-      "name": "backend",
-      "path": "coverage/lcov.info",
-      "format": "lcov",
-      "threshold": {
-        "line": 80,
-        "branch": 70,
-        "function": 80
-      }
-    }
-  ]
-}
-```
-
-### Schema
-
-**Top-level:**
-
-| Field      | Type    | Required | Description                   |
-| ---------- | ------- | -------- | ----------------------------- |
-| `version`  | integer | yes      | Schema version, currently `1` |
-| `coverage` | array   | yes      | List of coverage entries      |
-
-**Each coverage entry:**
-
-| Field       | Type   | Required | Description                                                |
-| ----------- | ------ | -------- | ---------------------------------------------------------- |
-| `name`      | string | yes      | Display name for annotations                               |
-| `path`      | string | yes      | Path to coverage report file                               |
-| `format`    | string | yes      | One of: `lcov`, `gocover`, `cobertura`, `clover`, `jacoco` |
-| `threshold` | object | yes      | At least one threshold must be set                         |
-
-**Threshold fields (all optional, but at least one required):**
-
-| Field      | Type   | Range | Description                          |
-| ---------- | ------ | ----- | ------------------------------------ |
-| `line`     | number | 0-100 | Minimum line coverage percentage     |
-| `branch`   | number | 0-100 | Minimum branch coverage percentage   |
-| `function` | number | 0-100 | Minimum function coverage percentage |
-
-If a threshold is configured but the coverage format doesn't report that metric (e.g., `branch` with `gocover`), the threshold is skipped and a notice annotation is emitted.
+If a threshold is configured but the coverage format doesn't report that metric (e.g., `threshold-branch` with `gocover`), the threshold is skipped and a notice annotation is emitted.
 
 ## Example Workflow
 
@@ -99,9 +60,9 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
 
@@ -109,29 +70,31 @@ jobs:
 
       - uses: evansims/coverlint@v1
         with:
-          fail-on-error: "true"
+          path: cover.out
+          format: gocover
+          threshold-line: 80
 ```
 
 ### Multiple Reports
 
-```json
-{
-  "version": 1,
-  "coverage": [
-    {
-      "name": "api",
-      "path": "cover.out",
-      "format": "gocover",
-      "threshold": { "line": 80 }
-    },
-    {
-      "name": "frontend",
-      "path": "coverage/lcov.info",
-      "format": "lcov",
-      "threshold": { "line": 85, "branch": 70, "function": 80 }
-    }
-  ]
-}
+Use multiple steps to check different coverage reports:
+
+```yaml
+- uses: evansims/coverlint@v1
+  with:
+    path: cover.out
+    format: gocover
+    name: api
+    threshold-line: 80
+
+- uses: evansims/coverlint@v1
+  with:
+    path: coverage/lcov.info
+    format: lcov
+    name: frontend
+    threshold-line: 85
+    threshold-branch: 70
+    threshold-function: 80
 ```
 
 ## Contributing
