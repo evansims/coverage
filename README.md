@@ -295,7 +295,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      security-events: write
+    outputs:
+      sarif: ${{ steps.coverage.outputs.sarif }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
@@ -307,9 +308,15 @@ jobs:
           format: lcov
           sarif: true
 
+  upload-sarif:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+    steps:
       - name: Write SARIF file
         env:
-          SARIF: ${{ steps.coverage.outputs.sarif }}
+          SARIF: ${{ needs.test.outputs.sarif }}
         run: printf '%s' "$SARIF" > coverage.sarif
 
       - uses: github/codeql-action/upload-sarif@820e3160e279568db735cee8ed8f8e77a6da7818 # v3
