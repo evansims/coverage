@@ -12,10 +12,11 @@ usage() {
   echo "  1. Validate the version and check prerequisites"
   echo "  2. Stamp COVERLINT_VERSION in action.yml and commit"
   echo "  3. Create and push a git tag"
-  echo "  4. Wait for the SLSA release workflow to build and create the GitHub release"
+  echo "  4. Wait for the SLSA release workflow to build a draft GitHub release"
   echo "  5. Update the major version tag (e.g., v1) for Actions marketplace"
-  echo "  6. Update README.md examples with pinned commit SHAs"
-  echo "  7. Reset COVERLINT_VERSION to dev placeholder"
+  echo "  6. Append SHA pinning guidance and publish the release"
+  echo "  7. Update README.md examples with pinned commit SHAs"
+  echo "  8. Reset COVERLINT_VERSION to dev placeholder"
   exit 1
 }
 
@@ -175,7 +176,7 @@ if ! gh run watch "$run_id" --exit-status; then
 fi
 
 echo ""
-echo "Release ${tag} created successfully."
+echo "Release workflow completed (draft release with all assets)."
 
 # Update major version tag
 echo "Updating ${major} tag..."
@@ -185,7 +186,8 @@ git push origin "$major" --force
 commit_sha=$(git rev-parse "$tag")
 repo=$(gh repo view --json nameWithOwner -q .nameWithOwner)
 
-# Append SHA pinning guidance to the GitHub Release body
+# Append SHA pinning guidance to the GitHub Release body (still a draft, so mutable)
+echo "Updating release notes with SHA pinning guidance..."
 existing_body=$(gh release view "$tag" --json body -q .body 2>/dev/null || true)
 pin_section="## SHA Pinning
 
@@ -200,6 +202,11 @@ See [GitHub's guide on security hardening](https://docs.github.com/en/actions/se
 gh release edit "$tag" --notes "${existing_body}
 
 ${pin_section}"
+
+# Publish the release (transitions from draft to published; immutable after this)
+echo "Publishing release ${tag}..."
+gh release edit "$tag" --draft=false
+echo "Release ${tag} published."
 
 # Resolve a git tag to its commit SHA, dereferencing annotated tags
 resolve_tag_sha() {

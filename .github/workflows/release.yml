@@ -4,10 +4,14 @@
 #   1. build: SLSA Go builder (reusable workflow) compiles each platform
 #      binary in an isolated environment and generates signed in-toto
 #      provenance attestations (.intoto.jsonl). This provides SLSA L3
-#      because the build runs outside the caller's control.
+#      because the build runs outside the caller's control. Creates a
+#      draft release so parallel matrix jobs can upload without hitting
+#      release immutability.
 #   2. package: Creates tar.gz/zip archives, checksums, and SBOMs from
 #      the SLSA-built binaries. Signs checksums.txt with cosign keyless
-#      signing (Sigstore Fulcio). Uploads everything to the release.
+#      signing (Sigstore Fulcio). Uploads everything to the draft release.
+#   3. release.sh: Appends SHA pinning guidance to the release body,
+#      then publishes the draft (making it immutable).
 #
 # Verification:
 #   SLSA provenance: slsa-verifier verify-artifact --source-uri github.com/evansims/coverlint <binary>
@@ -49,6 +53,7 @@ jobs:
       config-file: .slsa-goreleaser/${{ matrix.os }}-${{ matrix.arch }}.yml
       upload-assets: true
       upload-tag-name: ${{ github.ref_name }}
+      draft-release: "true"
 
   package:
     needs: build
@@ -123,3 +128,7 @@ jobs:
             dist/checksums.txt.sig \
             dist/checksums.txt.pem \
             dist/*.sbom.json
+
+      # The release stays as a draft so release.sh can edit the body
+      # (append SHA pinning guidance) before publishing. Once published,
+      # release immutability prevents further modifications.
