@@ -49,7 +49,7 @@ type formatResult struct {
 func Run() error {
 	inp, err := ParseInputs()
 	if err != nil {
-		return err
+		return &ConfigError{Message: err.Error(), Cause: err}
 	}
 
 	annotator := NewAnnotator(inp.Annotations, os.Stdout)
@@ -61,14 +61,14 @@ func Run() error {
 		// Both format and path auto-discovered
 		discovered, err := DiscoverAllReports(inp.WorkDir)
 		if err != nil {
-			return err
+			return &ConfigError{Message: err.Error(), Cause: err}
 		}
 		annotator.Emit("notice", fmt.Sprintf("auto-discovered %d report(s): %s",
 			len(discovered), strings.Join(discovered, ", ")))
 
 		perFormat, err = parseWithFormats(discovered, inp.Formats, inp.WorkDir)
 		if err != nil {
-			return err
+			return &ConfigError{Message: err.Error(), Cause: err}
 		}
 
 		var detectedFormats []string
@@ -82,7 +82,7 @@ func Run() error {
 		for _, format := range inp.Formats {
 			results, err := discoverAndParse(format, inp.WorkDir, annotator)
 			if err != nil {
-				return err
+				return &ConfigError{Message: err.Error(), Cause: err}
 			}
 			perFormat = append(perFormat, formatResult{Format: format, Results: results})
 		}
@@ -90,16 +90,16 @@ func Run() error {
 		// Explicit paths: resolve once, then route each file to matching parser
 		resolved, err := ResolvePaths(inp.Path, inp.WorkDir)
 		if err != nil {
-			return err
+			return &ConfigError{Message: err.Error(), Cause: err}
 		}
 		perFormat, err = parseWithFormats(resolved, inp.Formats, inp.WorkDir)
 		if err != nil {
-			return err
+			return &ConfigError{Message: err.Error(), Cause: err}
 		}
 	}
 
 	if len(perFormat) == 0 {
-		return fmt.Errorf("no coverage reports were parsed")
+		return &ConfigError{Message: "no coverage reports were parsed"}
 	}
 
 	// Build per-format merged results and entry results
@@ -210,7 +210,7 @@ func Run() error {
 	}
 
 	if !cr.Passed && inp.FailOnError {
-		return fmt.Errorf("coverage below threshold")
+		return &ThresholdError{Message: "coverage below threshold"}
 	}
 
 	return nil
