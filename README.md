@@ -2,7 +2,9 @@
 
 ![Coverage](https://raw.githubusercontent.com/evansims/coverlint/badges/coverage.svg)
 
-A self-contained GitHub Action that parses coverage reports, enforces thresholds, and reports results as GitHub Actions annotations and job summaries. No external services or secrets required — just pass/fail.
+Coverage checks for GitHub Actions — no external services, no secrets, no accounts. Add one step to your workflow, set a threshold, and get pass/fail results with annotations and a job summary.
+
+Coverlint parses coverage reports in [five formats](#supported-formats), enforces configurable thresholds, and runs entirely within your GitHub Actions runner.
 
 ## Supported Formats
 
@@ -173,7 +175,8 @@ Use `min-line`, `min-branch`, or `min-function` to enforce hard floors on indivi
     min-branch: 60 # fails if branch drops below 60%, even if the overall score passes
 ```
 
-If you set a floor that your format doesn't support (e.g. `min-branch` with `gocover`), it's skipped with a warning annotation.
+> [!NOTE]
+> If you set a floor that your format doesn't support (e.g. `min-branch` with `gocover`), it's skipped with a warning annotation.
 
 ### Per-Area Thresholds
 
@@ -283,6 +286,7 @@ Use GitHub Actions' `fromJSON()` expression to read values in later steps:
 
 Show live coverage in your README — no external services or secrets needed.
 
+> [!IMPORTANT]
 > **Why two jobs?** The test job runs with read-only permissions on every push and PR. Only the badge job gets `contents: write`, and only on pushes to `main`. This keeps your PR checks locked down.
 
 <details>
