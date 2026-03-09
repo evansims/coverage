@@ -40,7 +40,10 @@ jobs:
       id-token: write
       contents: write
       actions: read
-    uses: slsa-framework/slsa-github-generator/.github/workflows/builder_go_slsa3.yml@f7dd8c54c2067bafc12ca7a55595d5ee9b75204a # v2.1.0
+    # NOTE: The SLSA Go builder requires a tag ref (refs/tags/vX.Y.Z), not a
+    # commit SHA. This is an intentional security constraint of the builder —
+    # it verifies its own release integrity via tag. SHA-pinning is not supported.
+    uses: slsa-framework/slsa-github-generator/.github/workflows/builder_go_slsa3.yml@v2.1.0
     with:
       go-version-file: go.mod
       config-file: .slsa-goreleaser/${{ matrix.os }}-${{ matrix.arch }}.yml
