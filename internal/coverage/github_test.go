@@ -104,6 +104,46 @@ func TestWriteOutputs(t *testing.T) {
 	}
 }
 
+func TestWriteJobSummaryOmitsUnsupportedColumns(t *testing.T) {
+	summaryFile := filepath.Join(t.TempDir(), "summary.md")
+	if err := os.WriteFile(summaryFile, nil, 0644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GITHUB_STEP_SUMMARY", summaryFile)
+
+	line := 100.0
+	results := []EntryResult{
+		{
+			Name:   "go-coverage",
+			Line:   &line,
+			Passed: true,
+		},
+	}
+
+	if err := WriteJobSummary(results, nil); err != nil {
+		t.Fatalf("WriteJobSummary() error: %v", err)
+	}
+
+	data, err := os.ReadFile(summaryFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	content := string(data)
+
+	if strings.Contains(content, "Branch") {
+		t.Error("summary should not contain Branch column when no results have branch data")
+	}
+	if strings.Contains(content, "Function") {
+		t.Error("summary should not contain Function column when no results have function data")
+	}
+	if !strings.Contains(content, "Line") {
+		t.Error("summary should contain Line column")
+	}
+	if !strings.Contains(content, "100.0%") {
+		t.Error("summary should contain line percentage")
+	}
+}
+
 func TestWriteJobSummaryNoEnvVar(t *testing.T) {
 	t.Setenv("GITHUB_STEP_SUMMARY", "")
 	err := WriteJobSummary(nil, nil)

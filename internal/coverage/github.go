@@ -28,10 +28,42 @@ func WriteJobSummary(results []EntryResult, suggestions []Suggestion) (err error
 		return nil // not running in GitHub Actions
 	}
 
+	// Determine which metric columns have data across all results
+	var hasLine, hasBranch, hasFunction bool
+	for _, r := range results {
+		if r.Line != nil {
+			hasLine = true
+		}
+		if r.Branch != nil {
+			hasBranch = true
+		}
+		if r.Function != nil {
+			hasFunction = true
+		}
+	}
+
 	var sb strings.Builder
 	sb.WriteString("## Coverage Results\n\n")
-	sb.WriteString("| Name | Line | Branch | Function | Status |\n")
-	sb.WriteString("|------|------|--------|----------|--------|\n")
+
+	// Build header dynamically based on available metrics
+	header := "| Name"
+	separator := "|------"
+	if hasLine {
+		header += " | Line"
+		separator += "|------"
+	}
+	if hasBranch {
+		header += " | Branch"
+		separator += "|--------"
+	}
+	if hasFunction {
+		header += " | Function"
+		separator += "|----------"
+	}
+	header += " | Status |\n"
+	separator += "|--------|\n"
+	sb.WriteString(header)
+	sb.WriteString(separator)
 
 	for _, r := range results {
 		status := "Pass"
@@ -39,12 +71,17 @@ func WriteJobSummary(results []EntryResult, suggestions []Suggestion) (err error
 			status = "**Fail**"
 		}
 
-		line := fmtPct(r.Line)
-		branch := fmtPct(r.Branch)
-		function := fmtPct(r.Function)
-
-		fmt.Fprintf(&sb, "| %s | %s | %s | %s | %s |\n",
-			r.Name, line, branch, function, status)
+		fmt.Fprintf(&sb, "| %s", r.Name)
+		if hasLine {
+			fmt.Fprintf(&sb, " | %s", fmtPct(r.Line))
+		}
+		if hasBranch {
+			fmt.Fprintf(&sb, " | %s", fmtPct(r.Branch))
+		}
+		if hasFunction {
+			fmt.Fprintf(&sb, " | %s", fmtPct(r.Function))
+		}
+		fmt.Fprintf(&sb, " | %s |\n", status)
 	}
 	sb.WriteString("\n")
 
