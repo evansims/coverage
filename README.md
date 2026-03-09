@@ -237,12 +237,8 @@ jobs:
         env:
           REPO: ${{ github.repository }}
         run: |
-          if curl -fsL "https://raw.githubusercontent.com/${REPO}/coverlint/coverage-baseline.json" -o /tmp/baseline.json 2>/dev/null; then
-            delimiter=$(openssl rand -hex 16)
-            echo "baseline<<${delimiter}" >> "$GITHUB_OUTPUT"
-            cat /tmp/baseline.json >> "$GITHUB_OUTPUT"
-            echo "${delimiter}" >> "$GITHUB_OUTPUT"
-          fi
+          baseline=$(curl -fsL "https://raw.githubusercontent.com/${REPO}/coverlint/coverage-baseline.json" 2>/dev/null || true)
+          echo "baseline=${baseline}" >> "$GITHUB_OUTPUT"
 
       - uses: evansims/coverlint@403f492d058d03ec2b8bee6d791a5316421dbd31 # v1.1.0
         id: coverage
