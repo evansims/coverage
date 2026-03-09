@@ -16,7 +16,7 @@ Coverlint parses coverage reports in [all major formats](#supported-formats), en
 
 ## Usage
 
-Add coverlint after your test step. With no inputs, it auto-detects the format, finds the report, and reports coverage without enforcing a threshold — useful for tracking trends before committing to a minimum:
+Add coverlint after your test step. Without any inputs, it auto-detects the format, finds your report, and shows coverage without enforcing a threshold — handy for tracking trends before you commit to a minimum:
 
 ```yaml
 - uses: evansims/coverlint@403f492d058d03ec2b8bee6d791a5316421dbd31 # v1.1.0
@@ -30,7 +30,7 @@ To enforce a minimum, set `min-coverage` — a combined score across line, branc
     min-coverage: 80
 ```
 
-Setting `format` explicitly is faster and avoids guesswork when files share names (e.g. `coverage.xml` could be Cobertura or Clover):
+Set `format` explicitly for faster runs and to avoid ambiguity when files share names (e.g. `coverage.xml` could be Cobertura or Clover):
 
 ```yaml
 - uses: evansims/coverlint@403f492d058d03ec2b8bee6d791a5316421dbd31 # v1.1.0
@@ -129,7 +129,7 @@ Setting `format` explicitly is faster and avoids guesswork when files share name
 
 ### Coverage Score
 
-`min-coverage` checks a weighted score across line (50), branch (30), and function (20) coverage. Missing metrics — like branch and function in `gocover` — automatically redistribute their weight to the rest.
+When you set `min-coverage`, coverlint computes a weighted score from line (50), branch (30), and function (20) coverage. If your format doesn't report a metric — like branch and function in `gocover` — its weight redistributes to the rest.
 
 ### Custom Weights
 
@@ -180,7 +180,7 @@ Use separate steps when parts of your project need different bars:
 
 ## Monorepo
 
-Combine coverage from multiple languages in one step — the job summary breaks down each format with a combined total. Use YAML block scalars (`|`) to pass multiple values:
+Combine coverage from multiple languages in one step — you'll get a job summary that breaks down each format with a combined total. Use YAML block scalars (`|`) to pass multiple values:
 
 ```yaml
 - uses: evansims/coverlint@403f492d058d03ec2b8bee6d791a5316421dbd31 # v1.1.0
@@ -210,9 +210,9 @@ You don't need to specify `format` or `path` — coverlint can figure both out. 
 
 ## Baseline & Regression Detection
 
-Catch coverage regressions before they land. Pass a previous run's baseline as JSON, and `min-delta` controls how far the score can drop. `min-delta: 0` fails on any drop; use `-2` to allow up to a 2-point decrease. Without a `baseline`, delta comparison is skipped entirely.
+Catch coverage regressions before they land. Pass a previous run's baseline as JSON and set `min-delta` to control how far the score can drop — `0` fails on any decrease, `-2` allows up to a 2-point drop. Skip `baseline` entirely if you don't need delta comparison yet.
 
-Each run emits its own `baseline` output as JSON — store it and feed it back next time. The workflow below stores the baseline on an orphan branch. The test job reads the previous baseline and emits the new one; a separate job writes it back on pushes to `main`:
+Each run emits its own `baseline` output as JSON — store it and feed it back next time. The workflow below keeps the baseline on an orphan branch, loading it before each run and updating it after merges to `main`:
 
 ```yaml
 on:
@@ -512,11 +512,11 @@ Use GitHub Actions' `fromJSON()` expression to read values in later steps:
 | 1    | Coverage below threshold                  |
 | 2    | Configuration, parse, or unexpected error |
 
-Use exit codes to distinguish between "tests passed but coverage is low" and "something is misconfigured." In CI, exit 1 is a meaningful failure; exit 2 usually means the action step needs fixing.
+This distinction helps you tell apart "coverage is too low" from "something is broken." If you see exit 1, your tests ran fine but coverage fell short. Exit 2 usually means the action step itself needs fixing.
 
 ## Pinning
 
-Releases use [immutable tags](https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases). For production workflows, [pin actions by commit SHA](https://docs.github.com/en/actions/security-for-github-actions/security-guides/security-hardening-for-github-actions#using-third-party-actions) and use [Dependabot](https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/about-dependabot-version-updates) to keep them current. The binary is checksum-verified on every download.
+[Pin actions by commit SHA](https://docs.github.com/en/actions/security-for-github-actions/security-guides/security-hardening-for-github-actions#using-third-party-actions) in production workflows and use [Dependabot](https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/about-dependabot-version-updates) to keep them current. All releases use [immutable tags](https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases), and the binary is checksum-verified on every download.
 
 ## Contributing
 
