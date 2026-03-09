@@ -139,14 +139,18 @@ fi
 
 # Create and push the version tag
 echo "Creating tag ${tag}..."
+push_time=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 git tag "$tag"
 git push origin "$tag"
 
-# Wait for the release workflow to complete
+# Wait for the release workflow to complete.
+# Filter to runs created after push_time to avoid matching stale failed runs
+# from previous attempts with the same tag.
 echo "Waiting for release workflow..."
 run_id=""
 for i in $(seq 1 30); do
-  run_id=$(gh run list --workflow=release.yml --limit=1 --json databaseId,headBranch --jq ".[] | select(.headBranch == \"${tag}\") | .databaseId" 2>/dev/null || true)
+  run_id=$(gh run list --workflow=release.yml --limit=5 --json databaseId,headBranch,createdAt \
+    --jq "[.[] | select(.headBranch == \"${tag}\" and .createdAt >= \"${push_time}\")] | first | .databaseId // empty" 2>/dev/null || true)
   if [[ -n "$run_id" ]]; then
     break
   fi
