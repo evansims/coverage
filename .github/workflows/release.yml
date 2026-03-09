@@ -1,3 +1,17 @@
+# Release workflow with SLSA Build Level 3 provenance and cosign signing.
+#
+# Architecture:
+#   1. build: SLSA Go builder (reusable workflow) compiles each platform
+#      binary in an isolated environment and generates signed in-toto
+#      provenance attestations (.intoto.jsonl). This provides SLSA L3
+#      because the build runs outside the caller's control.
+#   2. package: Creates tar.gz/zip archives, checksums, and SBOMs from
+#      the SLSA-built binaries. Signs checksums.txt with cosign keyless
+#      signing (Sigstore Fulcio). Uploads everything to the release.
+#
+# Verification:
+#   SLSA provenance: slsa-verifier verify-artifact --source-uri github.com/evansims/coverlint <binary>
+#   Cosign signature: cosign verify-blob --signature checksums.txt.sig --certificate checksums.txt.pem checksums.txt
 name: Release
 
 on:
@@ -8,23 +22,101 @@ on:
 permissions: {}
 
 jobs:
-  release:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: linux
+            arch: amd64
+          - os: linux
+            arch: arm64
+          - os: darwin
+            arch: amd64
+          - os: darwin
+            arch: arm64
+          - os: windows
+            arch: amd64
+    permissions:
+      id-token: write
+      contents: write
+      actions: read
+    uses: slsa-framework/slsa-github-generator/.github/workflows/builder_go_slsa3.yml@f7dd8c54c2067bafc12ca7a55595d5ee9b75204a # v2.1.0
+    with:
+      go-version-file: go.mod
+      config-file: .slsa-goreleaser/${{ matrix.os }}-${{ matrix.arch }}.yml
+      upload-assets: true
+      upload-tag-name: ${{ github.ref_name }}
+
+  package:
+    needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
       contents: write
+      id-token: write
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 0
-      - uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6
-        with:
-          go-version-file: go.mod
-      - uses: anchore/sbom-action/download-syft@17ae1740179002c89186b61233e0f892c3118b11 # v0
-      - uses: goreleaser/goreleaser-action@ec59f474b9834571250b370d4735c50f8e2d1e29 # v7
-        with:
-          distribution: goreleaser
-          version: "~> v2"
-          args: release --clean
+
+      - name: Download SLSA-built binaries from release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          mkdir -p dist
+          gh release download "$TAG" --pattern 'coverlint_*' --skip-existing --dir dist/
+          # Remove provenance files from the working set (they stay on the release)
+          rm -f dist/*.intoto.jsonl
+          ls -la dist/
+
+      - name: Create archives
+        run: |
+          cd dist
+          for bin in coverlint_linux_* coverlint_darwin_*; do
+            [ -f "$bin" ] || continue
+            chmod +x "$bin"
+            tar czf "${bin}.tar.gz" "$bin"
+          done
+          for bin in coverlint_windows_*.exe; do
+            [ -f "$bin" ] || continue
+            name="${bin%.exe}"
+            zip "${name}.zip" "$bin"
+          done
+
+      - name: Generate checksums
+        run: |
+          cd dist
+          sha256sum *.tar.gz *.zip > checksums.txt
+
+      - uses: anchore/sbom-action/download-syft@17ae1740179002c89186b61233e0f892c3118b11 # v0
+
+      - name: Generate SBOMs
+        run: |
+          cd dist
+          for archive in *.tar.gz *.zip; do
+            [ -f "$archive" ] || continue
+            syft "$archive" -o spdx-json="${archive}.sbom.json"
+          done
+
+      - uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4
+
+      - name: Sign checksums with cosign
+        run: |
+          cosign sign-blob --yes \
+            --output-signature dist/checksums.txt.sig \
+            --output-certificate dist/checksums.txt.pem \
+            dist/checksums.txt
+
+      - name: Upload packaging artifacts to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release upload "$TAG" --clobber \
+            dist/*.tar.gz \
+            dist/*.zip \
+            dist/checksums.txt \
+            dist/checksums.txt.sig \
+            dist/checksums.txt.pem \
+            dist/*.sbom.json

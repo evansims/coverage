@@ -1,5 +1,5 @@
 name: 'Coverlint'
-description: 'Parse coverage reports and enforce thresholds via GitHub Actions annotations'
+description: 'Parse coverage reports and enforce thresholds via GitHub Actions annotations. Minimum permissions: contents: read.'
 author: 'evansims'
 
 branding:
@@ -94,6 +94,10 @@ runs:
         RUNNER_OS_INPUT: ${{ runner.os }}
         RUNNER_ARCH_INPUT: ${{ runner.arch }}
         ACTION_REF: ${{ github.action_ref }}
+        # COVERLINT_VERSION is stamped by release.sh at release time.
+        # It serves as the fallback when github.action_ref is a commit SHA
+        # (i.e., the action is pinned by SHA rather than by tag).
+        COVERLINT_VERSION: "v0.0.0-dev"
       run: |
         os="$RUNNER_OS_INPUT"
         arch="$RUNNER_ARCH_INPUT"
@@ -110,12 +114,24 @@ runs:
         esac
 
         version="$ACTION_REF"
+
+        # If action_ref is a version tag (e.g., v1, v1.2.0), use it directly.
+        # If it's a commit SHA (SHA-pinned usage), fall back to COVERLINT_VERSION.
+        if [[ ! "$version" =~ ^v[0-9]+ ]]; then
+          version="$COVERLINT_VERSION"
+        fi
+
+        if [[ ! "$version" =~ ^v[0-9]+ ]]; then
+          echo "::error::Could not determine coverlint version. Use a version tag (e.g., @v1) or ensure COVERLINT_VERSION is set."
+          exit 1
+        fi
+
         repo="evansims/coverlint"
-        binary="coverlint"
+        binary="coverlint_${os}_${arch}"
         ext="tar.gz"
         if [[ "$os" == "windows" ]]; then ext="zip"; fi
 
-        archive="${binary}_${os}_${arch}.${ext}"
+        archive="${binary}.${ext}"
         base_url="https://github.com/${repo}/releases/download/${version}"
 
         echo "Downloading ${base_url}/${archive}"
@@ -125,7 +141,13 @@ runs:
         curl -fsL "${base_url}/${archive}" -o "${archive}"
         curl -fsL "${base_url}/checksums.txt" -o checksums.txt
 
-        # Verify checksum before extracting
+        # Verify checksum before extracting.
+        # Note: checksums.txt is cosign-signed (.sig/.pem available on the release).
+        # This check protects against transport corruption. For cryptographic
+        # verification, use: cosign verify-blob --signature checksums.txt.sig
+        #   --certificate checksums.txt.pem checksums.txt
+        # For SLSA L3 provenance verification of the underlying binary, use:
+        #   slsa-verifier verify-artifact --source-uri github.com/evansims/coverlint <binary>
         if command -v sha256sum &>/dev/null; then
           sha256sum --check --ignore-missing checksums.txt
         elif command -v shasum &>/dev/null; then
@@ -141,7 +163,9 @@ runs:
           tar xzf "${archive}"
         fi
 
-        chmod +x "${binary}"*
+        chmod +x "${binary}"
+        # Symlink to 'coverlint' so the run step can invoke it by name
+        ln -sf "${binary}" coverlint
         echo "${tmpdir}" >> "$GITHUB_PATH"
 
     - name: Run coverage check

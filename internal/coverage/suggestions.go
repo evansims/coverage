@@ -72,9 +72,8 @@ func FormatSuggestions(suggestions []Suggestion) string {
 	sb.WriteString("|------|----------|----------------|\n")
 
 	for _, s := range suggestions {
-		safePath := strings.ReplaceAll(s.Path, "|", "\\|")
+		safePath := sanitizeMarkdown(s.Path)
 		safePath = strings.ReplaceAll(safePath, "`", "")
-		safePath = strings.ReplaceAll(safePath, "\n", " ")
 		fmt.Fprintf(&sb, "| `%s` | %.1f%% | %d |\n", safePath, s.LinePct, s.UncoveredLines)
 	}
 	sb.WriteString("\n")

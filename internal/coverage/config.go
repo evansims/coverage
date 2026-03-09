@@ -150,6 +150,9 @@ func ParseInputs() (*Input, error) {
 		if err != nil {
 			return nil, fmt.Errorf("input validation: min-delta: %q is not a valid number", minDeltaStr)
 		}
+		if v < -100 || v > 100 {
+			return nil, fmt.Errorf("input validation: min-delta: %.1f must be between -100 and 100", v)
+		}
 		inp.MinDelta = &v
 	}
 

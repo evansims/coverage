@@ -6,6 +6,12 @@ import (
 	"strconv"
 )
 
+// maxJacocoCounterExpansion caps the number of individual branch/method entries
+// expanded per source file element. This prevents amplification attacks where a
+// crafted XML file with enormous counter values (e.g., mb="2000000000") causes
+// billions of map allocations from a few bytes of input.
+const maxJacocoCounterExpansion = 10000
+
 type jacocoReport struct {
 	XMLName  xml.Name        `xml:"report"`
 	Counters []jacocoCounter `xml:"counter"`
@@ -97,11 +103,22 @@ func parseJacoco(data []byte) (*CoverageResult, error) {
 				// Track individual branch points per line
 				totalBranches := line.Mb + line.Cb
 				if totalBranches > 0 {
-					for i := int64(0); i < line.Cb; i++ {
-						detail.Branches[strconv.Itoa(line.Nr)+":"+strconv.FormatInt(i, 10)] = 1
-					}
-					for i := int64(0); i < line.Mb; i++ {
-						detail.Branches[strconv.Itoa(line.Nr)+":missed:"+strconv.FormatInt(i, 10)] = 0
+					if totalBranches > maxJacocoCounterExpansion {
+						// Use aggregate entries to prevent memory exhaustion from
+						// crafted XML with enormous counter values
+						if line.Cb > 0 {
+							detail.Branches[strconv.Itoa(line.Nr)+":covered"] = line.Cb
+						}
+						if line.Mb > 0 {
+							detail.Branches[strconv.Itoa(line.Nr)+":missed"] = 0
+						}
+					} else {
+						for i := int64(0); i < line.Cb; i++ {
+							detail.Branches[strconv.Itoa(line.Nr)+":"+strconv.FormatInt(i, 10)] = 1
+						}
+						for i := int64(0); i < line.Mb; i++ {
+							detail.Branches[strconv.Itoa(line.Nr)+":missed:"+strconv.FormatInt(i, 10)] = 0
+						}
 					}
 				}
 			}
@@ -109,13 +126,22 @@ func parseJacoco(data []byte) (*CoverageResult, error) {
 			// Track methods from sourcefile-level METHOD counter
 			for _, c := range sf.Counters {
 				if c.Type == "METHOD" {
-					// We don't have individual method names from line-level data,
-					// so track covered/missed method counts using synthetic keys
-					for i := int64(0); i < c.Covered; i++ {
-						detail.Functions[filePath+":method:"+strconv.FormatInt(i, 10)] = 1
-					}
-					for i := int64(0); i < c.Missed; i++ {
-						detail.Functions[filePath+":method:missed:"+strconv.FormatInt(i, 10)] = 0
+					totalMethods := c.Covered + c.Missed
+					if totalMethods > maxJacocoCounterExpansion {
+						// Use aggregate entries to prevent memory exhaustion
+						if c.Covered > 0 {
+							detail.Functions[filePath+":method:covered"] = 1
+						}
+						if c.Missed > 0 {
+							detail.Functions[filePath+":method:missed"] = 0
+						}
+					} else {
+						for i := int64(0); i < c.Covered; i++ {
+							detail.Functions[filePath+":method:"+strconv.FormatInt(i, 10)] = 1
+						}
+						for i := int64(0); i < c.Missed; i++ {
+							detail.Functions[filePath+":method:missed:"+strconv.FormatInt(i, 10)] = 0
+						}
 					}
 				}
 			}

@@ -805,6 +805,34 @@ func TestParseInputsBaseline(t *testing.T) {
 		}
 	})
 
+	t.Run("min-delta out of range positive", func(t *testing.T) {
+		clear(t)
+		t.Setenv("INPUT_FORMAT", "gocover")
+		t.Setenv("INPUT_MIN-DELTA", "101")
+
+		_, err := ParseInputs()
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if !strings.Contains(err.Error(), "between -100 and 100") {
+			t.Errorf("error %q should mention range", err.Error())
+		}
+	})
+
+	t.Run("min-delta out of range negative", func(t *testing.T) {
+		clear(t)
+		t.Setenv("INPUT_FORMAT", "gocover")
+		t.Setenv("INPUT_MIN-DELTA", "-101")
+
+		_, err := ParseInputs()
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if !strings.Contains(err.Error(), "between -100 and 100") {
+			t.Errorf("error %q should mention range", err.Error())
+		}
+	})
+
 	t.Run("min-delta invalid", func(t *testing.T) {
 		clear(t)
 		t.Setenv("INPUT_FORMAT", "gocover")

@@ -9,7 +9,7 @@ usage() {
   echo "This script will:"
   echo "  1. Validate the version and check prerequisites"
   echo "  2. Create and push a git tag"
-  echo "  3. Wait for the GoReleaser CI workflow to create the GitHub release"
+  echo "  3. Wait for the SLSA release workflow to build and create the GitHub release"
   echo "  4. Update the major version tag (e.g., v1) for Actions marketplace"
   echo "  5. Update README.md examples with pinned commit SHAs (coverlint + third-party actions)"
   exit 1
@@ -60,8 +60,17 @@ if [[ "$confirm" != [yY] ]]; then
   exit 0
 fi
 
-# Create and push the version tag
+# Stamp COVERLINT_VERSION in action.yml so SHA-pinned usage can resolve the release tag
 echo ""
+echo "Stamping COVERLINT_VERSION=${tag} in action.yml..."
+perl -pi -e "s{COVERLINT_VERSION: \"[^\"]*\"}{COVERLINT_VERSION: \"${tag}\"}g" action.yml
+git add action.yml
+if ! git diff --cached --quiet; then
+  git commit -m "Stamp version ${tag} in action.yml"
+  git push origin "${branch}"
+fi
+
+# Create and push the version tag
 echo "Creating tag ${tag}..."
 git tag "$tag"
 git push origin "$tag"
@@ -154,9 +163,12 @@ perl -ne 'print "$1 $2\n" if m{uses:\s+(?!evansims/coverlint)(\S+?)\@\S+\s+#\s*(
   perl -pi -e "s{uses: \Q${action}\E\@\S+(\s+#\s*\S+)?}{uses: ${action}\@${action_sha} # ${version_tag}}g" README.md
 done
 
-git add README.md
+# Reset COVERLINT_VERSION to dev placeholder for the working branch
+perl -pi -e "s{COVERLINT_VERSION: \"[^\"]*\"}{COVERLINT_VERSION: \"v0.0.0-dev\"}g" action.yml
+
+git add README.md action.yml
 if ! git diff --cached --quiet; then
-  git commit -m "Pin README examples to ${tag} (${commit_sha:0:7})"
+  git commit -m "Post-release ${tag}: pin README SHAs, reset dev version"
   git push origin "${branch}"
 fi
 

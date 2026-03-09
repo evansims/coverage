@@ -7,6 +7,28 @@ import (
 	"strings"
 )
 
+// sanitizeSARIFPath normalizes a file path for use in SARIF artifact URIs.
+// Strips path traversal sequences, ensures the path is relative, and caps length.
+func sanitizeSARIFPath(p string) string {
+	p = strings.ReplaceAll(p, "\\", "/")
+	parts := strings.Split(p, "/")
+	var clean []string
+	for _, part := range parts {
+		if part == ".." || part == "" {
+			continue
+		}
+		clean = append(clean, part)
+	}
+	p = strings.Join(clean, "/")
+	if len(p) > 1024 {
+		p = p[:1024]
+	}
+	if p == "" {
+		p = "unknown"
+	}
+	return p
+}
+
 // defaultSARIFMaxResults is the default cap when SARIF is enabled with "true".
 const defaultSARIFMaxResults = 500
 
@@ -155,6 +177,7 @@ func generateLineResults(fileDetails map[string]*FileLineDetail) []SARIFResult {
 		}
 		sort.Ints(uncovered)
 
+		safeURI := sanitizeSARIFPath(path)
 		for _, line := range uncovered {
 			results = append(results, SARIFResult{
 				RuleID:  "coverage/uncovered-line",
@@ -162,7 +185,7 @@ func generateLineResults(fileDetails map[string]*FileLineDetail) []SARIFResult {
 				Locations: []SARIFLocation{
 					{
 						PhysicalLocation: SARIFPhysicalLocation{
-							ArtifactLocation: SARIFArtifactLocation{URI: path},
+							ArtifactLocation: SARIFArtifactLocation{URI: safeURI},
 							Region:           &SARIFRegion{StartLine: line},
 						},
 					},
@@ -237,7 +260,7 @@ func generateBlockResults(blockDetails map[string]map[string]*BlockEntry) []SARI
 			Locations: []SARIFLocation{
 				{
 					PhysicalLocation: SARIFPhysicalLocation{
-						ArtifactLocation: SARIFArtifactLocation{URI: u.path},
+						ArtifactLocation: SARIFArtifactLocation{URI: sanitizeSARIFPath(u.path)},
 						Region:           region,
 					},
 				},

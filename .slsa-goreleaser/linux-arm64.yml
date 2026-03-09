@@ -1,0 +1,13 @@
+version: 1
+
+env:
+  - CGO_ENABLED=0
+
+goos: linux
+goarch: arm64
+
+main: ./cmd/coverlint
+binary: coverlint_linux_arm64
+
+ldflags:
+  - "-s -w"

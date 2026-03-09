@@ -19,14 +19,12 @@ var parsers = map[string]parserFunc{
 // entity expansion (billion laughs) attacks. DOCTYPE declarations without
 // entities are allowed since some tools (e.g., JaCoCo) include them in
 // standard output.
+//
+// Scans the full file content. The 50MB file size limit makes this negligible
+// in performance terms, and scanning the full content prevents bypasses via
+// large padding before the DOCTYPE.
 func rejectXMLEntities(data []byte) error {
-	// Check a generous prefix — DTDs and entities appear before the root element
-	limit := 4096
-	if len(data) < limit {
-		limit = len(data)
-	}
-	prefix := data[:limit]
-	if bytes.Contains(prefix, []byte("<!ENTITY")) {
+	if bytes.Contains(data, []byte("<!ENTITY")) {
 		return fmt.Errorf("XML contains ENTITY declarations, which are not allowed in coverage reports")
 	}
 	return nil

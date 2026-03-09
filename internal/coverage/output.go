@@ -1,6 +1,8 @@
 package coverage
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -38,6 +40,19 @@ func sanitizeMarkdown(s string) string {
 	s = strings.ReplaceAll(s, "\n", " ")
 	s = strings.ReplaceAll(s, "\r", " ")
 	return s
+}
+
+// randomDelimiter generates a unique delimiter for GITHUB_OUTPUT multiline values.
+// Uses crypto/rand to prevent injection via crafted coverage file paths that match
+// the delimiter string.
+func randomDelimiter(prefix string) string {
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		// Fallback: use a long prefix unlikely to appear in output content.
+		// This path should never be reached on any modern OS.
+		return prefix + "_FALLBACK_9f8e7d6c5b4a3210"
+	}
+	return prefix + "_" + hex.EncodeToString(b)
 }
 
 // WriteJobSummary writes a markdown coverage table to $GITHUB_STEP_SUMMARY.
@@ -159,7 +174,8 @@ func WriteJobSummary(results []EntryResult, hasTotal bool, suggestions []Suggest
 }
 
 // WriteOutputs writes action outputs to $GITHUB_OUTPUT.
-// Uses multiline delimiter syntax for the results value to prevent injection.
+// Uses randomized multiline delimiter syntax for all multi-value outputs to
+// prevent injection via crafted coverage file paths or content.
 // Badge outputs are generated from the last entry's line coverage (the total).
 // If baseline is non-nil, baseline JSON is written as a multiline output.
 // If sarifJSON is non-empty, SARIF JSON is written as a multiline output.
@@ -188,8 +204,8 @@ func WriteOutputs(passed bool, results []EntryResult, baseline *BaselineData, sa
 		return fmt.Errorf("marshaling results: %w", err)
 	}
 
-	// Use multiline delimiter syntax to prevent output injection via crafted names
-	delimiter := "COVERLINT_RESULTS_EOF"
+	// Use randomized multiline delimiter syntax to prevent output injection
+	delimiter := randomDelimiter("COVERLINT_RESULTS")
 	if _, err = fmt.Fprintf(f, "results<<%s\n%s\n%s\n", delimiter, string(resultsJSON), delimiter); err != nil {
 		return fmt.Errorf("writing results output: %w", err)
 	}
@@ -198,14 +214,15 @@ func WriteOutputs(passed bool, results []EntryResult, baseline *BaselineData, sa
 	if len(results) > 0 {
 		total := results[len(results)-1]
 		if total.Score != nil {
-			svgDelimiter := "COVERLINT_SVG_EOF"
+			svgDelimiter := randomDelimiter("COVERLINT_SVG")
 			svg := GenerateBadgeSVG(*total.Score)
 			if _, err = fmt.Fprintf(f, "badge-svg<<%s\n%s\n%s\n", svgDelimiter, svg, svgDelimiter); err != nil {
 				return fmt.Errorf("writing badge-svg output: %w", err)
 			}
 
+			jsonDelimiter := randomDelimiter("COVERLINT_JSON")
 			badgeJSON := GenerateBadgeJSON(*total.Score)
-			if _, err = fmt.Fprintf(f, "badge-json=%s\n", badgeJSON); err != nil {
+			if _, err = fmt.Fprintf(f, "badge-json<<%s\n%s\n%s\n", jsonDelimiter, badgeJSON, jsonDelimiter); err != nil {
 				return fmt.Errorf("writing badge-json output: %w", err)
 			}
 		}
@@ -216,14 +233,14 @@ func WriteOutputs(passed bool, results []EntryResult, baseline *BaselineData, sa
 		if merr != nil {
 			return fmt.Errorf("marshaling baseline: %w", merr)
 		}
-		baselineDelimiter := "COVERLINT_BASELINE_EOF"
+		baselineDelimiter := randomDelimiter("COVERLINT_BASELINE")
 		if _, err = fmt.Fprintf(f, "baseline<<%s\n%s\n%s\n", baselineDelimiter, string(baselineJSON), baselineDelimiter); err != nil {
 			return fmt.Errorf("writing baseline output: %w", err)
 		}
 	}
 
 	if sarifJSON != "" {
-		sarifDelimiter := "COVERLINT_SARIF_EOF"
+		sarifDelimiter := randomDelimiter("COVERLINT_SARIF")
 		if _, err = fmt.Fprintf(f, "sarif<<%s\n%s\n%s\n", sarifDelimiter, sarifJSON, sarifDelimiter); err != nil {
 			return fmt.Errorf("writing sarif output: %w", err)
 		}

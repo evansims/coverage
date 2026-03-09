@@ -37,10 +37,17 @@ func GenerateBaseline(results []EntryResult) BaselineData {
 	return bd
 }
 
+// maxBaselineSize is the maximum allowed size for baseline JSON input (1 MB).
+// Legitimate baselines are tiny (a few hundred bytes), so this is generous.
+const maxBaselineSize = 1 << 20
+
 // LoadBaseline parses baseline coverage data from a raw JSON string.
 func LoadBaseline(source string) (*BaselineData, error) {
 	if source == "" {
 		return nil, fmt.Errorf("baseline JSON is empty")
+	}
+	if len(source) > maxBaselineSize {
+		return nil, fmt.Errorf("baseline JSON exceeds maximum size of %d bytes", maxBaselineSize)
 	}
 
 	var bd BaselineData

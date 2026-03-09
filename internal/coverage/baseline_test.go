@@ -2,6 +2,7 @@ package coverage
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -82,6 +83,18 @@ func TestLoadBaseline(t *testing.T) {
 			t.Fatal("expected error for invalid JSON")
 		}
 	})
+}
+
+func TestLoadBaselineSizeLimit(t *testing.T) {
+	// Baseline JSON exceeding maxBaselineSize should be rejected
+	huge := `{"score":85.0,"timestamp":"2025-01-01T00:00:00Z","padding":"` + string(make([]byte, maxBaselineSize)) + `"}`
+	_, err := LoadBaseline(huge)
+	if err == nil {
+		t.Fatal("expected error for oversized baseline")
+	}
+	if !strings.Contains(err.Error(), "maximum size") {
+		t.Errorf("error %q should mention maximum size", err.Error())
+	}
 }
 
 func TestCompareBaseline(t *testing.T) {

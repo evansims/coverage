@@ -187,6 +187,41 @@ func TestParseBlockRange(t *testing.T) {
 	}
 }
 
+func TestSanitizeSARIFPath(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"src/main.go", "src/main.go"},
+		{"../../../etc/passwd", "etc/passwd"},
+		{"src/../../../etc/passwd", "src/etc/passwd"},
+		{"/absolute/path.go", "absolute/path.go"},
+		{"", "unknown"},
+		{"a/b/../c", "a/b/c"},                       // .. stripped but other parts kept
+		{"src\\windows\\path.go", "src/windows/path.go"}, // backslash normalized
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got := sanitizeSARIFPath(tt.input)
+			if got != tt.want {
+				t.Errorf("sanitizeSARIFPath(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSanitizeSARIFPathLength(t *testing.T) {
+	// Paths longer than 1024 chars should be truncated
+	long := make([]byte, 2000)
+	for i := range long {
+		long[i] = 'a'
+	}
+	got := sanitizeSARIFPath(string(long))
+	if len(got) != 1024 {
+		t.Errorf("len = %d, want 1024", len(got))
+	}
+}
+
 func TestGenerateSARIF_ResultMessage(t *testing.T) {
 	fileDetails := map[string]*FileLineDetail{
 		"main.go": {Lines: map[int]int64{10: 0}},

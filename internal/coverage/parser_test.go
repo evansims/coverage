@@ -73,6 +73,20 @@ func TestRejectXMLEntities(t *testing.T) {
 	}
 }
 
+func TestRejectXMLEntitiesBeyondPrefix(t *testing.T) {
+	// Verify that entity detection works even when the ENTITY declaration
+	// appears far into the file (beyond any prefix-based scan limit).
+	prefix := make([]byte, 8192)
+	for i := range prefix {
+		prefix[i] = ' '
+	}
+	data := append(prefix, []byte("<!ENTITY bomb \"boom\">")...)
+	err := rejectXMLEntities(data)
+	if err == nil {
+		t.Fatal("expected error for ENTITY declaration beyond 4096 bytes")
+	}
+}
+
 func TestXMLParsersRejectEntities(t *testing.T) {
 	bomb := []byte(`<?xml version="1.0"?><!DOCTYPE coverage [<!ENTITY a "x">]><coverage></coverage>`)
 

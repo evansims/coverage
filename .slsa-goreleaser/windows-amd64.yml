@@ -1,0 +1,13 @@
+version: 1
+
+env:
+  - CGO_ENABLED=0
+
+goos: windows
+goarch: amd64
+
+main: ./cmd/coverlint
+binary: coverlint_windows_amd64.exe
+
+ldflags:
+  - "-s -w"

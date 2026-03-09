@@ -115,7 +115,8 @@ func TestWriteOutputs(t *testing.T) {
 	if !strings.Contains(content, "passed=true") {
 		t.Errorf("output should contain 'passed=true', got: %s", content)
 	}
-	if !strings.Contains(content, "results<<COVERLINT_RESULTS_EOF") {
+	// Delimiter is now randomized; check for the prefix pattern
+	if !strings.Contains(content, "results<<COVERLINT_RESULTS_") {
 		t.Errorf("output should contain multiline results delimiter, got: %s", content)
 	}
 	if !strings.Contains(content, `"backend"`) {
@@ -146,17 +147,17 @@ func TestWriteOutputsWithBadge(t *testing.T) {
 	}
 	content := string(data)
 
-	// Should have badge SVG output
-	if !strings.Contains(content, "badge-svg<<COVERLINT_SVG_EOF") {
+	// Should have badge SVG output with randomized delimiter
+	if !strings.Contains(content, "badge-svg<<COVERLINT_SVG_") {
 		t.Error("output should contain badge-svg with SVG delimiter")
 	}
 	if !strings.Contains(content, "<svg") {
 		t.Error("output should contain SVG content")
 	}
 
-	// Should have badge JSON output
-	if !strings.Contains(content, "badge-json=") {
-		t.Error("output should contain badge-json")
+	// Should have badge JSON output with randomized delimiter
+	if !strings.Contains(content, "badge-json<<COVERLINT_JSON_") {
+		t.Error("output should contain badge-json with JSON delimiter")
 	}
 	if !strings.Contains(content, `"coverage"`) {
 		t.Error("badge-json should contain coverage label")
@@ -406,12 +407,30 @@ func TestSanitizeMarkdown(t *testing.T) {
 		{"normal", "normal"},
 		{"has|pipe", "has\\|pipe"},
 		{"has\nnewline", "has newline"},
+		{"has\rcarriage", "has carriage"},
+		{"has\r\nboth", "has  both"},
 	}
 	for _, tt := range tests {
 		got := sanitizeMarkdown(tt.input)
 		if got != tt.want {
 			t.Errorf("sanitizeMarkdown(%q) = %q, want %q", tt.input, got, tt.want)
 		}
+	}
+}
+
+func TestRandomDelimiter(t *testing.T) {
+	d1 := randomDelimiter("TEST")
+	d2 := randomDelimiter("TEST")
+
+	if !strings.HasPrefix(d1, "TEST_") {
+		t.Errorf("delimiter should start with prefix, got: %s", d1)
+	}
+	if d1 == d2 {
+		t.Error("two random delimiters should not be equal")
+	}
+	// Should be prefix + "_" + 32 hex chars
+	if len(d1) != len("TEST_")+32 {
+		t.Errorf("delimiter length = %d, want %d", len(d1), len("TEST_")+32)
 	}
 }
 
@@ -479,7 +498,7 @@ func TestWriteOutputsWithBaseline(t *testing.T) {
 	}
 	content := string(data)
 
-	if !strings.Contains(content, "baseline<<COVERLINT_BASELINE_EOF") {
+	if !strings.Contains(content, "baseline<<COVERLINT_BASELINE_") {
 		t.Error("output should contain baseline with delimiter")
 	}
 	if !strings.Contains(content, `"score":85`) {
@@ -510,7 +529,7 @@ func TestWriteOutputsWithSARIF(t *testing.T) {
 	data, _ := os.ReadFile(outputFile)
 	content := string(data)
 
-	if !strings.Contains(content, "sarif<<COVERLINT_SARIF_EOF") {
+	if !strings.Contains(content, "sarif<<COVERLINT_SARIF_") {
 		t.Errorf("output should contain sarif with multiline delimiter, got: %s", content)
 	}
 	if !strings.Contains(content, `"version":"2.1.0"`) {

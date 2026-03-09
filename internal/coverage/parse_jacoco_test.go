@@ -192,6 +192,45 @@ func TestParseJacocoZeroBranch(t *testing.T) {
 	}
 }
 
+func TestParseJacocoAmplificationCap(t *testing.T) {
+	// Verify that extremely large counter values don't cause OOM via expansion loops.
+	// With cb=999999999, the old code would try to create ~1B map entries.
+	// The cap should fall back to aggregate entries instead.
+	data := []byte(`<?xml version="1.0"?>
+<report name="Amplified">
+  <package name="com/example">
+    <sourcefile name="Huge.java">
+      <line nr="1" mi="0" ci="1" mb="0" cb="999999999"/>
+      <counter type="LINE" missed="0" covered="1"/>
+      <counter type="BRANCH" missed="0" covered="999999999"/>
+      <counter type="METHOD" missed="0" covered="999999999"/>
+    </sourcefile>
+    <counter type="LINE" missed="0" covered="1"/>
+    <counter type="BRANCH" missed="0" covered="999999999"/>
+    <counter type="METHOD" missed="0" covered="999999999"/>
+  </package>
+  <counter type="LINE" missed="0" covered="1"/>
+  <counter type="BRANCH" missed="0" covered="999999999"/>
+  <counter type="METHOD" missed="0" covered="999999999"/>
+</report>`)
+
+	result, err := parseJacoco(data)
+	if err != nil {
+		t.Fatalf("parseJacoco() should not error on large counters: %v", err)
+	}
+
+	// Verify it parsed without creating billions of entries
+	detail := result.FileDetails["com/example/Huge.java"]
+	if detail == nil {
+		t.Fatal("expected file detail for Huge.java")
+	}
+
+	// With the cap, branches should use aggregate entries, not individual expansion
+	if len(detail.Branches) > int(maxJacocoCounterExpansion) {
+		t.Errorf("branch entries = %d, should be capped (not expanded to %d)", len(detail.Branches), 999999999)
+	}
+}
+
 func TestParseJacocoZeroMethod(t *testing.T) {
 	// Report with zero methods should not set Function metric
 	data := []byte(`<?xml version="1.0"?>

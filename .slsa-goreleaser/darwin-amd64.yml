@@ -1,0 +1,13 @@
+version: 1
+
+env:
+  - CGO_ENABLED=0
+
+goos: darwin
+goarch: amd64
+
+main: ./cmd/coverlint
+binary: coverlint_darwin_amd64
+
+ldflags:
+  - "-s -w"
