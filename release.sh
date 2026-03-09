@@ -134,7 +134,7 @@ echo "Stamping COVERLINT_VERSION=${tag} in action.yml..."
 perl -pi -e "s{COVERLINT_VERSION: \"[^\"]*\"}{COVERLINT_VERSION: \"${tag}\"}g" action.yml
 git add action.yml
 if ! git diff --cached --quiet; then
-  git commit -m "Stamp version ${tag} in action.yml"
+  git commit -m "release: ${tag}"
   git push origin "${branch}"
 fi
 
@@ -180,7 +180,7 @@ echo "Release workflow completed (draft release with all assets)."
 
 # Update major version tag
 echo "Updating ${major} tag..."
-git tag -fa "$major" -m "Update ${major} tag to ${tag}"
+git tag -fa "$major" -m "release: update ${major} to ${tag}"
 git push origin "$major" --force
 
 commit_sha=$(git rev-parse "$tag")
@@ -250,7 +250,7 @@ perl -pi -e "s{COVERLINT_VERSION: \"[^\"]*\"}{COVERLINT_VERSION: \"v0.0.0-dev\"}
 
 git add README.md action.yml
 if ! git diff --cached --quiet; then
-  git commit -m "Post-release ${tag}: pin README SHAs, reset dev version"
+  git commit -m "chore(release): post-release ${tag} SHA pins and version reset"
   git push origin "${branch}"
 fi
 
