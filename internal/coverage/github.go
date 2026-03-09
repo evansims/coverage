@@ -31,14 +31,6 @@ func sanitizeWorkflowCommand(s string) string {
 	return s
 }
 
-// sanitizeOutputValue strips newlines from a value to prevent injection of
-// additional key=value pairs into GITHUB_OUTPUT.
-func sanitizeOutputValue(s string) string {
-	s = strings.ReplaceAll(s, "\n", " ")
-	s = strings.ReplaceAll(s, "\r", " ")
-	return s
-}
-
 // sanitizeMarkdown escapes characters that could break markdown table formatting.
 func sanitizeMarkdown(s string) string {
 	s = strings.ReplaceAll(s, "|", "\\|")
