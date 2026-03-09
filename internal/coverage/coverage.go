@@ -13,12 +13,16 @@ const maxCoverageFileSize = 50 * 1024 * 1024
 
 // readCoverageFile reads a coverage file with size validation.
 // Uses a single file handle to avoid TOCTOU between size check and read.
-func readCoverageFile(path string) ([]byte, error) {
+func readCoverageFile(path string) (data []byte, err error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("reading coverage file %q: %w", path, err)
 	}
-	defer f.Close()
+	defer func() {
+		if cerr := f.Close(); cerr != nil && err == nil {
+			err = fmt.Errorf("closing coverage file %q: %w", path, cerr)
+		}
+	}()
 
 	info, err := f.Stat()
 	if err != nil {
@@ -28,7 +32,7 @@ func readCoverageFile(path string) ([]byte, error) {
 		return nil, fmt.Errorf("coverage file %q exceeds maximum size of %d bytes (%d bytes)", path, maxCoverageFileSize, info.Size())
 	}
 
-	data, err := io.ReadAll(f)
+	data, err = io.ReadAll(f)
 	if err != nil {
 		return nil, fmt.Errorf("reading coverage file %q: %w", path, err)
 	}
