@@ -15,18 +15,19 @@ var parsers = map[string]parserFunc{
 	"jacoco":    parseJacoco,
 }
 
-// rejectXMLEntities checks the first portion of XML data for DOCTYPE or
-// ENTITY declarations that could trigger entity expansion (billion laughs)
-// attacks. Coverage reports never contain DTDs.
+// rejectXMLEntities checks for ENTITY declarations that could trigger
+// entity expansion (billion laughs) attacks. DOCTYPE declarations without
+// entities are allowed since some tools (e.g., JaCoCo) include them in
+// standard output.
 func rejectXMLEntities(data []byte) error {
-	// Check a generous prefix — DTDs appear before the root element
+	// Check a generous prefix — DTDs and entities appear before the root element
 	limit := 4096
 	if len(data) < limit {
 		limit = len(data)
 	}
 	prefix := data[:limit]
-	if bytes.Contains(prefix, []byte("<!DOCTYPE")) || bytes.Contains(prefix, []byte("<!ENTITY")) {
-		return fmt.Errorf("XML contains DOCTYPE or ENTITY declarations, which are not allowed in coverage reports")
+	if bytes.Contains(prefix, []byte("<!ENTITY")) {
+		return fmt.Errorf("XML contains ENTITY declarations, which are not allowed in coverage reports")
 	}
 	return nil
 }

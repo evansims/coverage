@@ -39,12 +39,17 @@ func TestRejectXMLEntities(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:    "DOCTYPE declaration",
+			name:    "DOCTYPE without entities is allowed",
+			data:    `<?xml version="1.0"?><!DOCTYPE report PUBLIC "-//JACOCO//DTD" "report.dtd"><report></report>`,
+			wantErr: false,
+		},
+		{
+			name:    "DOCTYPE with ENTITY declaration",
 			data:    `<?xml version="1.0"?><!DOCTYPE coverage [<!ENTITY a "x">]><coverage></coverage>`,
 			wantErr: true,
 		},
 		{
-			name:    "ENTITY declaration",
+			name:    "standalone ENTITY declaration",
 			data:    `<?xml version="1.0"?><!ENTITY a "x"><coverage></coverage>`,
 			wantErr: true,
 		},
@@ -76,10 +81,10 @@ func TestXMLParsersRejectEntities(t *testing.T) {
 			parser, _ := getParser(name)
 			_, err := parser(bomb)
 			if err == nil {
-				t.Fatal("expected error for XML with DOCTYPE")
+				t.Fatal("expected error for XML with ENTITY")
 			}
-			if !strings.Contains(err.Error(), "DOCTYPE") {
-				t.Errorf("error should mention DOCTYPE: %v", err)
+			if !strings.Contains(err.Error(), "ENTITY") {
+				t.Errorf("error should mention ENTITY: %v", err)
 			}
 		})
 	}
