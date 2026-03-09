@@ -11,6 +11,7 @@ usage() {
   echo "  2. Create and push a git tag"
   echo "  3. Wait for the GoReleaser CI workflow to create the GitHub release"
   echo "  4. Update the major version tag (e.g., v1) for Actions marketplace"
+  echo "  5. Update README.md examples with pinned commit SHA"
   exit 1
 }
 
@@ -22,6 +23,7 @@ fi
 version="${1#v}"
 tag="v${version}"
 major="v$(echo "$version" | cut -d. -f1)"
+branch=$(git branch --show-current)
 
 # Validate semver format
 if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
@@ -49,7 +51,7 @@ fi
 echo "Release plan:"
 echo "  Tag:           ${tag}"
 echo "  Major tag:     ${major}"
-echo "  Branch:        $(git branch --show-current)"
+echo "  Branch:        ${branch}"
 echo "  Commit:        $(git rev-parse --short HEAD)"
 echo ""
 read -rp "Proceed? [y/N] " confirm
@@ -97,9 +99,9 @@ git tag -fa "$major" -m "Update ${major} tag to ${tag}"
 git push origin "$major" --force
 
 commit_sha=$(git rev-parse "$tag")
+repo=$(gh repo view --json nameWithOwner -q .nameWithOwner)
 
 # Append SHA pinning guidance to the GitHub Release body
-repo=$(gh repo view --json nameWithOwner -q .nameWithOwner)
 existing_body=$(gh release view "$tag" --json body -q .body 2>/dev/null || true)
 pin_section="## SHA Pinning
 
@@ -114,6 +116,15 @@ See [GitHub's guide on security hardening](https://docs.github.com/en/actions/se
 gh release edit "$tag" --notes "${existing_body}
 
 ${pin_section}"
+
+# Update README.md usage examples with pinned SHA
+echo "Updating README.md with pinned SHA..."
+perl -pi -e "s{uses: evansims/coverlint\@\S+(\s+#\s*\S+)?}{uses: evansims/coverlint\@${commit_sha} # ${tag}}g" README.md
+git add README.md
+if ! git diff --cached --quiet; then
+  git commit -m "Pin README examples to ${tag} (${commit_sha:0:7})"
+  git push origin "${branch}"
+fi
 
 echo ""
 echo "Done! ${tag} is live."
