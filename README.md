@@ -41,19 +41,8 @@ Setting `format` explicitly is faster and avoids guesswork when files share name
 
 ## Quick Start by Language
 
-| Language              | Test Command                                         | Format      | Path                                             |
-| --------------------- | ---------------------------------------------------- | ----------- | ------------------------------------------------ |
-| Go                    | `go test -coverprofile=cover.out ./...`              | `gocover`   | `cover.out`                                      |
-| Rust                  | `cargo llvm-cov --lcov --output-path lcov.info`      | `lcov`      | `lcov.info`                                      |
-| TypeScript/JavaScript | `npx vitest run --coverage --coverage.reporter=lcov` | `lcov`      | `coverage/lcov.info`                             |
-| Python                | `pytest --cov --cov-report=xml:coverage.xml`         | `cobertura` | `coverage.xml`                                   |
-| PHP                   | `vendor/bin/phpunit --coverage-clover=coverage.xml`  | `clover`    | `coverage.xml`                                   |
-| Java (Gradle)         | `./gradlew test jacocoTestReport`                    | `jacoco`    | `build/reports/jacoco/test/jacocoTestReport.xml` |
-
 <details>
-<summary><strong>Full workflow snippets</strong></summary>
-
-**Go**
+<summary>Go</summary>
 
 ```yaml
 - run: go test -coverprofile=cover.out ./...
@@ -64,7 +53,10 @@ Setting `format` explicitly is faster and avoids guesswork when files share name
     min-coverage: 80
 ```
 
-**Rust**
+</details>
+
+<details>
+<summary>Rust</summary>
 
 ```yaml
 - run: cargo llvm-cov --lcov --output-path lcov.info
@@ -75,7 +67,10 @@ Setting `format` explicitly is faster and avoids guesswork when files share name
     min-coverage: 80
 ```
 
-**TypeScript / JavaScript**
+</details>
+
+<details>
+<summary>TypeScript / JavaScript</summary>
 
 ```yaml
 - run: npx vitest run --coverage --coverage.reporter=lcov
@@ -86,7 +81,10 @@ Setting `format` explicitly is faster and avoids guesswork when files share name
     min-coverage: 80
 ```
 
-**Python**
+</details>
+
+<details>
+<summary>Python</summary>
 
 ```yaml
 - run: pytest --cov --cov-report=xml:coverage.xml
@@ -97,7 +95,10 @@ Setting `format` explicitly is faster and avoids guesswork when files share name
     min-coverage: 80
 ```
 
-**PHP**
+</details>
+
+<details>
+<summary>PHP</summary>
 
 ```yaml
 - run: vendor/bin/phpunit --coverage-clover=coverage.xml
@@ -108,7 +109,10 @@ Setting `format` explicitly is faster and avoids guesswork when files share name
     min-coverage: 80
 ```
 
-**Java (Gradle)**
+</details>
+
+<details>
+<summary>Java (Gradle)</summary>
 
 ```yaml
 - run: ./gradlew test jacocoTestReport
@@ -125,7 +129,7 @@ Setting `format` explicitly is faster and avoids guesswork when files share name
 
 ### Coverage Score
 
-`min-coverage` checks a weighted score computed from line, branch, and function coverage. The default weights are line 50, branch 30, function 20. If your format doesn't report a metric (e.g. `gocover` has no branch or function data), its weight shifts to the remaining metrics.
+`min-coverage` checks a weighted score across line (50), branch (30), and function (20) coverage. Missing metrics — like branch and function in `gocover` — automatically redistribute their weight to the rest.
 
 ### Custom Weights
 
@@ -206,24 +210,9 @@ You don't need to specify `format` or `path` — coverlint can figure both out. 
 
 ## Baseline & Regression Detection
 
-Set `min-delta` to control how much the score can drop between runs. Coverlint compares the current score against a previous `baseline` you provide as JSON:
+Catch coverage regressions before they land. Pass a previous run's baseline as JSON, and `min-delta` controls how far the score can drop. `min-delta: 0` fails on any drop; use `-2` to allow up to a 2-point decrease. Without a `baseline`, delta comparison is skipped entirely.
 
-```yaml
-- uses: evansims/coverlint@403f492d058d03ec2b8bee6d791a5316421dbd31 # v1.1.0
-  id: coverage
-  with:
-    format: gocover
-    min-coverage: 80
-    baseline: '{"score":84.5,"line":87.2,"timestamp":"2026-03-01T00:00:00Z"}'
-    min-delta: 0 # no regression allowed
-```
-
-`min-delta: 0` fails on any drop. Use a negative value like `-2` to allow up to a 2-point decrease. If `baseline` is empty, delta comparison is skipped. The `baseline` output emits the current run's data as JSON, ready for storage. The full workflow below shows how to load and store it automatically.
-
-<details>
-<summary><strong>Full baseline workflow</strong></summary>
-
-Store the baseline on an orphan branch. The test job reads the previous baseline and emits the new one; a separate job writes it back on pushes to `main`:
+Each run emits its own `baseline` output as JSON — store it and feed it back next time. The workflow below stores the baseline on an orphan branch. The test job reads the previous baseline and emits the new one; a separate job writes it back on pushes to `main`:
 
 ```yaml
 on:
@@ -297,11 +286,9 @@ jobs:
           git push origin baselines
 ```
 
-</details>
-
 ## Code Scanning Integration
 
-Generate [SARIF](https://sarifweb.azurewebsites.net/) output to surface uncovered lines and blocks in GitHub's Code Scanning tab. Set `sarif: true`, write the output to a file, and upload it with `codeql-action/upload-sarif`:
+See uncovered lines and blocks right in GitHub's Code Scanning tab. Enable `sarif: true` and upload the [SARIF](https://sarifweb.azurewebsites.net/) output alongside your test results:
 
 ```yaml
 jobs:
@@ -333,10 +320,7 @@ jobs:
 
 ## PR Comments
 
-Post coverage results as a PR comment using the `results` output:
-
-<details>
-<summary><strong>PR comment workflow</strong></summary>
+Give reviewers coverage context without leaving the PR. Use the `results` output to post a summary comment:
 
 ```yaml
 jobs:
@@ -368,8 +352,6 @@ jobs:
 
           gh pr comment "$PR_NUMBER" --body "**Coverage:** ${score}% — ${status}"
 ```
-
-</details>
 
 ## Coverage Badges
 
