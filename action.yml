@@ -144,8 +144,7 @@ runs:
         # Verify checksum before extracting.
         # Note: checksums.txt is cosign-signed (.sig/.pem available on the release).
         # This check protects against transport corruption. For cryptographic
-        # verification, use: cosign verify-blob --signature checksums.txt.sig
-        #   --certificate checksums.txt.pem checksums.txt
+        # verification, use: cosign verify-blob --bundle checksums.txt.bundle checksums.txt
         # For SLSA L3 provenance verification of the underlying binary, use:
         #   slsa-verifier verify-artifact --source-uri github.com/evansims/coverlint <binary>
         if command -v sha256sum &>/dev/null; then

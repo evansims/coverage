@@ -15,7 +15,7 @@
 #
 # Verification:
 #   SLSA provenance: slsa-verifier verify-artifact --source-uri github.com/evansims/coverlint <binary>
-#   Cosign signature: cosign verify-blob --signature checksums.txt.sig --certificate checksums.txt.pem checksums.txt
+#   Cosign signature: cosign verify-blob --bundle checksums.txt.bundle checksums.txt
 name: Release
 
 on:
@@ -112,8 +112,7 @@ jobs:
       - name: Sign checksums with cosign
         run: |
           cosign sign-blob --yes \
-            --output-signature dist/checksums.txt.sig \
-            --output-certificate dist/checksums.txt.pem \
+            --bundle dist/checksums.txt.bundle \
             dist/checksums.txt
 
       - name: Upload packaging artifacts to release
@@ -125,8 +124,7 @@ jobs:
             dist/*.tar.gz \
             dist/*.zip \
             dist/checksums.txt \
-            dist/checksums.txt.sig \
-            dist/checksums.txt.pem \
+            dist/checksums.txt.bundle \
             dist/*.sbom.json
 
       # The release stays as a draft so release.sh can edit the body
