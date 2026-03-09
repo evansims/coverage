@@ -22,7 +22,9 @@ func EmitAnnotation(level, message string) {
 }
 
 // WriteJobSummary writes a markdown coverage table to $GITHUB_STEP_SUMMARY.
-func WriteJobSummary(results []EntryResult, suggestions []Suggestion) (err error) {
+// When hasTotal is true, the last entry in results is rendered as a bold total
+// footer row separated from the per-format rows above it.
+func WriteJobSummary(results []EntryResult, hasTotal bool, suggestions []Suggestion) (err error) {
 	summaryPath := os.Getenv("GITHUB_STEP_SUMMARY")
 	if summaryPath == "" {
 		return nil // not running in GitHub Actions
@@ -65,7 +67,16 @@ func WriteJobSummary(results []EntryResult, suggestions []Suggestion) (err error
 	sb.WriteString(header)
 	sb.WriteString(separator)
 
-	for _, r := range results {
+	// Separate regular rows from total row
+	regularRows := results
+	var totalRow *EntryResult
+	if hasTotal && len(results) > 1 {
+		regularRows = results[:len(results)-1]
+		last := results[len(results)-1]
+		totalRow = &last
+	}
+
+	for _, r := range regularRows {
 		status := "Pass"
 		if !r.Passed {
 			status = "**Fail**"
@@ -83,6 +94,27 @@ func WriteJobSummary(results []EntryResult, suggestions []Suggestion) (err error
 		}
 		fmt.Fprintf(&sb, " | %s |\n", status)
 	}
+
+	// Render total footer row with bold formatting
+	if totalRow != nil {
+		status := "**Pass**"
+		if !totalRow.Passed {
+			status = "**Fail**"
+		}
+
+		fmt.Fprintf(&sb, "| **%s** ", totalRow.Name)
+		if hasLine {
+			fmt.Fprintf(&sb, "| **%s** ", fmtPct(totalRow.Line))
+		}
+		if hasBranch {
+			fmt.Fprintf(&sb, "| **%s** ", fmtPct(totalRow.Branch))
+		}
+		if hasFunction {
+			fmt.Fprintf(&sb, "| **%s** ", fmtPct(totalRow.Function))
+		}
+		fmt.Fprintf(&sb, "| %s |\n", status)
+	}
+
 	sb.WriteString("\n")
 
 	if suggestionsSection := FormatSuggestions(suggestions); suggestionsSection != "" {

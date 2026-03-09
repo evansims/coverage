@@ -7,6 +7,12 @@ import (
 	"strings"
 )
 
+// formatResult pairs a format name with its parsed coverage results.
+type formatResult struct {
+	Format  string
+	Results []*CoverageResult
+}
+
 // Run is the main entry point for the coverage action.
 func Run() error {
 	inp, err := ParseInputs()
@@ -14,7 +20,8 @@ func Run() error {
 		return err
 	}
 
-	var parsed []*CoverageResult
+	// Parse coverage files grouped by format
+	var perFormat []formatResult
 
 	if strings.TrimSpace(inp.Path) == "" {
 		// Auto-discovery: each format discovers its own files independently
@@ -23,7 +30,7 @@ func Run() error {
 			if err != nil {
 				return err
 			}
-			parsed = append(parsed, results...)
+			perFormat = append(perFormat, formatResult{Format: format, Results: results})
 		}
 	} else {
 		// Explicit paths: resolve once, then route each file to matching parser
@@ -32,15 +39,21 @@ func Run() error {
 			return err
 		}
 
-		parsersForFormats := make([]parserFunc, len(inp.Formats))
-		for i, f := range inp.Formats {
+		type namedParser struct {
+			name   string
+			parser parserFunc
+		}
+		var namedParsers []namedParser
+		for _, f := range inp.Formats {
 			p, err := getParser(f)
 			if err != nil {
 				return err
 			}
-			parsersForFormats[i] = p
+			namedParsers = append(namedParsers, namedParser{name: f, parser: p})
 		}
 
+		// Group results by which parser succeeded
+		formatResults := map[string][]*CoverageResult{}
 		for _, p := range resolved {
 			fullPath := filepath.Join(inp.WorkDir, p)
 			data, err := os.ReadFile(fullPath)
@@ -48,44 +61,76 @@ func Run() error {
 				return fmt.Errorf("reading coverage file %q: %w", fullPath, err)
 			}
 
-			result, err := tryParsers(data, p, parsersForFormats)
-			if err != nil {
-				return err
+			matched := false
+			for _, np := range namedParsers {
+				result, err := np.parser(data)
+				if err == nil {
+					formatResults[np.name] = append(formatResults[np.name], result)
+					matched = true
+					break
+				}
 			}
-			parsed = append(parsed, result)
+			if !matched {
+				return fmt.Errorf("parsing %q: no configured parser succeeded", p)
+			}
+		}
+
+		// Preserve format order from input
+		for _, f := range inp.Formats {
+			if results, ok := formatResults[f]; ok {
+				perFormat = append(perFormat, formatResult{Format: f, Results: results})
+			}
 		}
 	}
 
-	// Merge if multiple reports
-	var result *CoverageResult
-	if len(parsed) == 1 {
-		result = parsed[0]
+	// Build per-format merged results and entry results
+	multiFormat := len(inp.Formats) > 1
+	var allParsed []*CoverageResult
+	var entryResults []EntryResult
+
+	for _, fr := range perFormat {
+		allParsed = append(allParsed, fr.Results...)
+
+		if multiFormat {
+			// Merge within this format if multiple files
+			var formatMerged *CoverageResult
+			if len(fr.Results) == 1 {
+				formatMerged = fr.Results[0]
+			} else {
+				formatMerged = MergeResults(fr.Results)
+			}
+
+			entry := buildEntryResult(fr.Format, formatMerged)
+			entry.Passed = true // per-format rows don't show pass/fail
+			entryResults = append(entryResults, entry)
+		}
+	}
+
+	// Merge all results for the combined/total result
+	var combined *CoverageResult
+	if len(allParsed) == 1 {
+		combined = allParsed[0]
 	} else {
-		result = MergeResults(parsed)
-		EmitAnnotation("notice", fmt.Sprintf("merged %d coverage reports", len(parsed)))
+		combined = MergeResults(allParsed)
+		EmitAnnotation("notice", fmt.Sprintf("merged %d coverage reports", len(allParsed)))
 	}
-	result.Name = inp.Name
+	combined.Name = inp.Name
 
-	cr := CheckThresholds(result, &inp.Threshold)
+	cr := CheckThresholds(combined, &inp.Threshold)
 
-	entryResult := EntryResult{
-		Name:   inp.Name,
-		Passed: cr.Passed,
-	}
-	if result.Line != nil {
-		pct := result.Line.Pct()
-		entryResult.Line = &pct
-	}
-	if result.Branch != nil {
-		pct := result.Branch.Pct()
-		entryResult.Branch = &pct
-	}
-	if result.Function != nil {
-		pct := result.Function.Pct()
-		entryResult.Function = &pct
-	}
+	totalEntry := buildEntryResult(inp.Name, combined)
+	totalEntry.Passed = cr.Passed
 
-	results := []EntryResult{entryResult}
+	// For single-format, the results list is just the total entry
+	// For multi-format, per-format rows are in entryResults and total is separate
+	var resultsForOutput []EntryResult
+	var totalForSummary *EntryResult
+	if multiFormat {
+		resultsForOutput = entryResults
+		totalForSummary = &totalEntry
+	} else {
+		resultsForOutput = []EntryResult{totalEntry}
+	}
 
 	for _, s := range cr.Skipped {
 		EmitAnnotation("notice", fmt.Sprintf("%s: %s threshold configured but not reported by %s format — skipped",
@@ -103,14 +148,14 @@ func Run() error {
 
 	if cr.Passed {
 		var parts []string
-		if entryResult.Line != nil {
-			parts = append(parts, fmt.Sprintf("line %.1f%%", *entryResult.Line))
+		if totalEntry.Line != nil {
+			parts = append(parts, fmt.Sprintf("line %.1f%%", *totalEntry.Line))
 		}
-		if entryResult.Branch != nil {
-			parts = append(parts, fmt.Sprintf("branch %.1f%%", *entryResult.Branch))
+		if totalEntry.Branch != nil {
+			parts = append(parts, fmt.Sprintf("branch %.1f%%", *totalEntry.Branch))
 		}
-		if entryResult.Function != nil {
-			parts = append(parts, fmt.Sprintf("function %.1f%%", *entryResult.Function))
+		if totalEntry.Function != nil {
+			parts = append(parts, fmt.Sprintf("function %.1f%%", *totalEntry.Function))
 		}
 		msg := fmt.Sprintf("%s: %s — all thresholds met", inp.Name, strings.Join(parts, ", "))
 		EmitAnnotation("notice", msg)
@@ -118,16 +163,22 @@ func Run() error {
 
 	// Compute suggestions if enabled
 	var suggestions []Suggestion
-	if inp.Suggestions && len(result.Files) > 0 {
-		suggestions = RankSuggestions(result.Files)
+	if inp.Suggestions && len(combined.Files) > 0 {
+		suggestions = RankSuggestions(combined.Files)
 	}
 
 	// Write job summary and outputs
-	if err := WriteJobSummary(results, suggestions); err != nil {
+	// For multi-format, include per-format rows + total footer
+	allResults := resultsForOutput
+	if totalForSummary != nil {
+		allResults = append(allResults, *totalForSummary)
+	}
+
+	if err := WriteJobSummary(allResults, totalForSummary != nil, suggestions); err != nil {
 		EmitAnnotation("warning", fmt.Sprintf("failed to write job summary: %v", err))
 	}
 
-	if err := WriteOutputs(cr.Passed, results); err != nil {
+	if err := WriteOutputs(cr.Passed, allResults); err != nil {
 		EmitAnnotation("warning", fmt.Sprintf("failed to write outputs: %v", err))
 	}
 
@@ -136,6 +187,24 @@ func Run() error {
 	}
 
 	return nil
+}
+
+// buildEntryResult creates an EntryResult from a CoverageResult.
+func buildEntryResult(name string, r *CoverageResult) EntryResult {
+	entry := EntryResult{Name: name}
+	if r.Line != nil {
+		pct := r.Line.Pct()
+		entry.Line = &pct
+	}
+	if r.Branch != nil {
+		pct := r.Branch.Pct()
+		entry.Branch = &pct
+	}
+	if r.Function != nil {
+		pct := r.Function.Pct()
+		entry.Function = &pct
+	}
+	return entry
 }
 
 // discoverAndParse auto-discovers and parses coverage files for a single format.
@@ -168,27 +237,4 @@ func discoverAndParse(format, workDir string) ([]*CoverageResult, error) {
 	}
 
 	return results, nil
-}
-
-// tryParsers attempts to parse data with each parser in order, returning the
-// first successful result. Used for multi-format explicit paths where each
-// file's format is determined by which parser can successfully parse it.
-func tryParsers(data []byte, path string, parsers []parserFunc) (*CoverageResult, error) {
-	if len(parsers) == 1 {
-		result, err := parsers[0](data)
-		if err != nil {
-			return nil, fmt.Errorf("parsing %q: %w", path, err)
-		}
-		return result, nil
-	}
-
-	var lastErr error
-	for _, parser := range parsers {
-		result, err := parser(data)
-		if err == nil {
-			return result, nil
-		}
-		lastErr = err
-	}
-	return nil, fmt.Errorf("parsing %q: no parser succeeded (last error: %w)", path, lastErr)
 }

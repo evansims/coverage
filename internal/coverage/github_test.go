@@ -56,7 +56,7 @@ func TestWriteJobSummary(t *testing.T) {
 		},
 	}
 
-	if err := WriteJobSummary(results, nil); err != nil {
+	if err := WriteJobSummary(results, false, nil); err != nil {
 		t.Fatalf("WriteJobSummary() error: %v", err)
 	}
 
@@ -120,7 +120,7 @@ func TestWriteJobSummaryOmitsUnsupportedColumns(t *testing.T) {
 		},
 	}
 
-	if err := WriteJobSummary(results, nil); err != nil {
+	if err := WriteJobSummary(results, false, nil); err != nil {
 		t.Fatalf("WriteJobSummary() error: %v", err)
 	}
 
@@ -144,9 +144,55 @@ func TestWriteJobSummaryOmitsUnsupportedColumns(t *testing.T) {
 	}
 }
 
+func TestWriteJobSummaryMultiFormatTotal(t *testing.T) {
+	summaryFile := filepath.Join(t.TempDir(), "summary.md")
+	if err := os.WriteFile(summaryFile, nil, 0644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GITHUB_STEP_SUMMARY", summaryFile)
+
+	goLine := 90.0
+	nodeLine := 85.0
+	nodeBranch := 70.0
+	totalLine := 87.5
+	totalBranch := 70.0
+
+	results := []EntryResult{
+		{Name: "gocover", Line: &goLine, Passed: true},
+		{Name: "lcov", Line: &nodeLine, Branch: &nodeBranch, Passed: true},
+		{Name: "Total", Line: &totalLine, Branch: &totalBranch, Passed: true},
+	}
+
+	if err := WriteJobSummary(results, true, nil); err != nil {
+		t.Fatalf("WriteJobSummary() error: %v", err)
+	}
+
+	data, err := os.ReadFile(summaryFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	content := string(data)
+
+	// Should have per-format rows
+	if !strings.Contains(content, "| gocover") {
+		t.Error("summary should contain gocover row")
+	}
+	if !strings.Contains(content, "| lcov") {
+		t.Error("summary should contain lcov row")
+	}
+
+	// Total row should be bold
+	if !strings.Contains(content, "**Total**") {
+		t.Error("summary should contain bold Total row")
+	}
+	if !strings.Contains(content, "**87.5%**") {
+		t.Error("summary should contain bold total percentage")
+	}
+}
+
 func TestWriteJobSummaryNoEnvVar(t *testing.T) {
 	t.Setenv("GITHUB_STEP_SUMMARY", "")
-	err := WriteJobSummary(nil, nil)
+	err := WriteJobSummary(nil, false, nil)
 	if err != nil {
 		t.Fatalf("should not error when GITHUB_STEP_SUMMARY is empty: %v", err)
 	}
