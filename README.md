@@ -19,13 +19,13 @@ Coverlint parses coverage reports in [five formats](#supported-formats), enforce
 Add coverlint after your test step. With no inputs, it auto-detects the format, finds the report, and reports coverage without enforcing a threshold — useful for tracking trends before committing to a minimum:
 
 ```yaml
-- uses: evansims/coverlint@v1
+- uses: evansims/coverlint@403f492d058d03ec2b8bee6d791a5316421dbd31 # v1.1.0
 ```
 
 To enforce a minimum, set `min-coverage` — a combined score across line, branch, and function coverage (see [Custom Weights](#custom-weights) for how the score is computed):
 
 ```yaml
-- uses: evansims/coverlint@v1
+- uses: evansims/coverlint@403f492d058d03ec2b8bee6d791a5316421dbd31 # v1.1.0
   with:
     min-coverage: 80
 ```
@@ -33,7 +33,7 @@ To enforce a minimum, set `min-coverage` — a combined score across line, branc
 Setting `format` explicitly is faster and avoids guesswork when files share names (e.g. `coverage.xml` could be Cobertura or Clover):
 
 ```yaml
-- uses: evansims/coverlint@v1
+- uses: evansims/coverlint@403f492d058d03ec2b8bee6d791a5316421dbd31 # v1.1.0
   with:
     format: lcov
     min-coverage: 80
@@ -56,7 +56,7 @@ Setting `format` explicitly is faster and avoids guesswork when files share name
 ```yaml
 - run: go test -coverprofile=cover.out ./...
 
-- uses: evansims/coverlint@v1
+- uses: evansims/coverlint@403f492d058d03ec2b8bee6d791a5316421dbd31 # v1.1.0
   with:
     format: gocover
     min-coverage: 80
@@ -70,7 +70,7 @@ Setting `format` explicitly is faster and avoids guesswork when files share name
 ```yaml
 - run: cargo llvm-cov --lcov --output-path lcov.info
 
-- uses: evansims/coverlint@v1
+- uses: evansims/coverlint@403f492d058d03ec2b8bee6d791a5316421dbd31 # v1.1.0
   with:
     format: lcov
     min-coverage: 80
@@ -84,7 +84,7 @@ Setting `format` explicitly is faster and avoids guesswork when files share name
 ```yaml
 - run: npx vitest run --coverage --coverage.reporter=lcov
 
-- uses: evansims/coverlint@v1
+- uses: evansims/coverlint@403f492d058d03ec2b8bee6d791a5316421dbd31 # v1.1.0
   with:
     format: lcov
     min-coverage: 80
@@ -98,7 +98,7 @@ Setting `format` explicitly is faster and avoids guesswork when files share name
 ```yaml
 - run: pytest --cov --cov-report=xml:coverage.xml
 
-- uses: evansims/coverlint@v1
+- uses: evansims/coverlint@403f492d058d03ec2b8bee6d791a5316421dbd31 # v1.1.0
   with:
     format: cobertura
     min-coverage: 80
@@ -112,7 +112,7 @@ Setting `format` explicitly is faster and avoids guesswork when files share name
 ```yaml
 - run: vendor/bin/phpunit --coverage-clover=coverage.xml
 
-- uses: evansims/coverlint@v1
+- uses: evansims/coverlint@403f492d058d03ec2b8bee6d791a5316421dbd31 # v1.1.0
   with:
     format: clover
     min-coverage: 80
@@ -126,7 +126,7 @@ Setting `format` explicitly is faster and avoids guesswork when files share name
 ```yaml
 - run: ./gradlew test jacocoTestReport
 
-- uses: evansims/coverlint@v1
+- uses: evansims/coverlint@403f492d058d03ec2b8bee6d791a5316421dbd31 # v1.1.0
   with:
     format: jacoco
     min-coverage: 80
@@ -141,7 +141,7 @@ Setting `format` explicitly is faster and avoids guesswork when files share name
 `min-coverage` checks a weighted score computed from line, branch, and function coverage. The default weights are line 50, branch 30, function 20. If a metric isn't reported by your format (e.g. `gocover` doesn't report branch or function), its weight redistributes proportionally.
 
 ```yaml
-- uses: evansims/coverlint@v1
+- uses: evansims/coverlint@403f492d058d03ec2b8bee6d791a5316421dbd31 # v1.1.0
   with:
     format: lcov
     min-coverage: 80
@@ -152,7 +152,7 @@ Setting `format` explicitly is faster and avoids guesswork when files share name
 Weights are relative — adjust them to match what matters to your project:
 
 ```yaml
-- uses: evansims/coverlint@v1
+- uses: evansims/coverlint@403f492d058d03ec2b8bee6d791a5316421dbd31 # v1.1.0
   with:
     format: lcov
     min-coverage: 80
@@ -166,7 +166,7 @@ Weights are relative — adjust them to match what matters to your project:
 Use `min-line`, `min-branch`, or `min-function` to enforce hard floors on individual metrics, checked independently of the weighted score. Combine them with `min-coverage` to set both an overall bar and individual limits:
 
 ```yaml
-- uses: evansims/coverlint@v1
+- uses: evansims/coverlint@403f492d058d03ec2b8bee6d791a5316421dbd31 # v1.1.0
   with:
     format: lcov
     min-coverage: 80
@@ -181,13 +181,13 @@ Use `min-line`, `min-branch`, or `min-function` to enforce hard floors on indivi
 Use separate steps when parts of your project need different bars:
 
 ```yaml
-- uses: evansims/coverlint@v1
+- uses: evansims/coverlint@403f492d058d03ec2b8bee6d791a5316421dbd31 # v1.1.0
   with:
     format: gocover
     path: cover.out
     min-coverage: 80
 
-- uses: evansims/coverlint@v1
+- uses: evansims/coverlint@403f492d058d03ec2b8bee6d791a5316421dbd31 # v1.1.0
   with:
     format: lcov
     path: coverage/lcov.info
@@ -199,7 +199,7 @@ Use separate steps when parts of your project need different bars:
 Combine coverage from multiple languages in one step — the job summary breaks down each format with a combined total. Use YAML block scalars (`|`) to pass multiple values:
 
 ```yaml
-- uses: evansims/coverlint@v1
+- uses: evansims/coverlint@403f492d058d03ec2b8bee6d791a5316421dbd31 # v1.1.0
   with:
     format: |
       gocover
@@ -308,7 +308,7 @@ jobs:
 
       # ... your test steps ...
 
-      - uses: evansims/coverlint@v1
+      - uses: evansims/coverlint@403f492d058d03ec2b8bee6d791a5316421dbd31 # v1.1.0
         id: coverage
         with:
           format: gocover
