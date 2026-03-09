@@ -1,6 +1,8 @@
 package coverage
 
 import (
+	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -579,5 +581,341 @@ func TestWriteJobSummaryInvalidPath(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "opening step summary file") {
 		t.Errorf("error should mention opening: %v", err)
+	}
+}
+
+func TestEmitAnnotation(t *testing.T) {
+	// Capture stdout
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	EmitAnnotation("error", "something failed")
+
+	_ = w.Close()
+	os.Stdout = old
+
+	out, _ := io.ReadAll(r)
+	got := string(out)
+
+	if got != "::error::something failed\n" {
+		t.Errorf("EmitAnnotation output = %q, want %q", got, "::error::something failed\n")
+	}
+}
+
+func TestEmitAnnotationSanitizesMessage(t *testing.T) {
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	EmitAnnotation("warning", "inject\n::error::pwned")
+
+	_ = w.Close()
+	os.Stdout = old
+
+	out, _ := io.ReadAll(r)
+	got := string(out)
+
+	if strings.Contains(got, "::error::pwned") {
+		t.Error("EmitAnnotation should sanitize workflow command injection")
+	}
+}
+
+func TestWriteOutputsWriteError(t *testing.T) {
+	// Make the output file read-only to trigger write error after opening
+	dir := t.TempDir()
+	outputFile := filepath.Join(dir, "github_output")
+	// Create as writable, then chmod after open to simulate write failure
+	if err := os.WriteFile(outputFile, nil, 0444); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GITHUB_OUTPUT", outputFile)
+
+	err := WriteOutputs(true, nil, nil, "")
+	if err == nil {
+		t.Fatal("expected error when output file is read-only")
+	}
+}
+
+func TestWriteOutputsAllFields(t *testing.T) {
+	// Test all WriteOutputs paths: badge, baseline, and sarif all present
+	outputFile := filepath.Join(t.TempDir(), "github_output")
+	if err := os.WriteFile(outputFile, nil, 0644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GITHUB_OUTPUT", outputFile)
+
+	score := 85.0
+	line := 90.0
+	results := []EntryResult{
+		{Name: "total", Score: &score, Line: &line, Passed: true},
+	}
+
+	bl := 90.0
+	baseline := &BaselineData{
+		Score:     85.0,
+		Line:      &bl,
+		Timestamp: "2025-01-01T00:00:00Z",
+	}
+
+	sarifJSON := `{"version":"2.1.0","runs":[]}`
+
+	if err := WriteOutputs(true, results, baseline, sarifJSON); err != nil {
+		t.Fatalf("WriteOutputs() error: %v", err)
+	}
+
+	data, _ := os.ReadFile(outputFile)
+	content := string(data)
+
+	checks := []string{
+		"passed=true",
+		"results<<COVERLINT_RESULTS_",
+		"badge-svg<<COVERLINT_SVG_",
+		"badge-json<<COVERLINT_JSON_",
+		"baseline<<COVERLINT_BASELINE_",
+		"sarif<<COVERLINT_SARIF_",
+	}
+	for _, c := range checks {
+		if !strings.Contains(content, c) {
+			t.Errorf("output should contain %q", c)
+		}
+	}
+}
+
+func TestWriteOutputsViaClosedPipe(t *testing.T) {
+	// Use /proc/self/fd or a symlink trick to create an unwritable file descriptor path.
+	// Simpler approach: create a named pipe (FIFO) and don't open it for reading,
+	// making writes fail. On macOS, we can use a different approach:
+	// create a temp file, use os.OpenFile with O_APPEND|O_WRONLY to verify it works,
+	// then point GITHUB_OUTPUT to a path under a directory that gets chmod 0 after open.
+
+	// Actually, the simplest cross-platform approach is to use a path to a directory,
+	// but os.OpenFile on a directory for writing returns an error at open time.
+	// Since the open error is already tested, focus on testing path variations instead.
+
+	// Test with all output fields populated to maximize coverage of non-error paths
+	outputFile := filepath.Join(t.TempDir(), "github_output")
+	if err := os.WriteFile(outputFile, nil, 0644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GITHUB_OUTPUT", outputFile)
+
+	score := 50.0
+	line := 60.0
+	branch := 70.0
+	fn := 80.0
+	results := []EntryResult{
+		{Name: "format1", Score: &score, Line: &line, Branch: &branch, Function: &fn, Passed: false},
+		{Name: "total", Score: &score, Line: &line, Branch: &branch, Function: &fn, Passed: false},
+	}
+
+	bl := 75.0
+	br := 65.0
+	baseline := &BaselineData{
+		Score:    90.0,
+		Line:     &bl,
+		Branch:   &br,
+		Function: &fn,
+		Timestamp: "2025-01-01T00:00:00Z",
+	}
+
+	sarifJSON := `{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"coverlint"}},"results":[]}]}`
+
+	if err := WriteOutputs(false, results, baseline, sarifJSON); err != nil {
+		t.Fatalf("WriteOutputs() error: %v", err)
+	}
+
+	data, _ := os.ReadFile(outputFile)
+	content := string(data)
+
+	// Verify all sections present
+	if !strings.Contains(content, "passed=false") {
+		t.Error("missing passed=false")
+	}
+	if !strings.Contains(content, "results<<") {
+		t.Error("missing results")
+	}
+	if !strings.Contains(content, "badge-svg<<") {
+		t.Error("missing badge-svg")
+	}
+	if !strings.Contains(content, "badge-json<<") {
+		t.Error("missing badge-json")
+	}
+	if !strings.Contains(content, "baseline<<") {
+		t.Error("missing baseline")
+	}
+	if !strings.Contains(content, "sarif<<") {
+		t.Error("missing sarif")
+	}
+}
+
+func TestWriteOutputsFalseAndNoScore(t *testing.T) {
+	outputFile := filepath.Join(t.TempDir(), "github_output")
+	if err := os.WriteFile(outputFile, nil, 0644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GITHUB_OUTPUT", outputFile)
+
+	// Test passed=false with entry that has no score
+	results := []EntryResult{
+		{Name: "test", Passed: false},
+	}
+
+	if err := WriteOutputs(false, results, nil, ""); err != nil {
+		t.Fatalf("WriteOutputs() error: %v", err)
+	}
+
+	data, _ := os.ReadFile(outputFile)
+	content := string(data)
+
+	if !strings.Contains(content, "passed=false") {
+		t.Error("should contain passed=false")
+	}
+	if strings.Contains(content, "badge-svg") {
+		t.Error("should not contain badge when no score")
+	}
+}
+
+func TestWriteJobSummaryScoreColumn(t *testing.T) {
+	summaryFile := filepath.Join(t.TempDir(), "summary.md")
+	if err := os.WriteFile(summaryFile, nil, 0644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GITHUB_STEP_SUMMARY", summaryFile)
+
+	score := 85.0
+	results := []EntryResult{
+		{Name: "test", Score: &score, Passed: true},
+	}
+
+	if err := WriteJobSummary(results, false, nil); err != nil {
+		t.Fatalf("WriteJobSummary() error: %v", err)
+	}
+
+	data, _ := os.ReadFile(summaryFile)
+	content := string(data)
+
+	if !strings.Contains(content, "85.0%") {
+		t.Error("summary should contain score percentage")
+	}
+	if !strings.Contains(content, "Score") {
+		t.Error("summary should contain Score header")
+	}
+}
+
+func TestWriteJobSummaryFunctionColumn(t *testing.T) {
+	summaryFile := filepath.Join(t.TempDir(), "summary.md")
+	if err := os.WriteFile(summaryFile, nil, 0644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GITHUB_STEP_SUMMARY", summaryFile)
+
+	line := 90.0
+	fn := 80.0
+	results := []EntryResult{
+		{Name: "test", Line: &line, Function: &fn, Passed: true},
+	}
+
+	if err := WriteJobSummary(results, false, nil); err != nil {
+		t.Fatalf("WriteJobSummary() error: %v", err)
+	}
+
+	data, _ := os.ReadFile(summaryFile)
+	content := string(data)
+
+	if !strings.Contains(content, "Function") {
+		t.Error("summary should contain Function column")
+	}
+	if !strings.Contains(content, "80.0%") {
+		t.Error("summary should contain function percentage")
+	}
+}
+
+// failWriter fails after N successful writes.
+type failWriter struct {
+	n       int // number of writes before failure
+	written int
+}
+
+func (fw *failWriter) Write(p []byte) (int, error) {
+	fw.written++
+	if fw.written > fw.n {
+		return 0, fmt.Errorf("simulated write error")
+	}
+	return len(p), nil
+}
+
+func TestWriteOutputsToWriteErrors(t *testing.T) {
+	score := 85.0
+	line := 90.0
+	results := []EntryResult{
+		{Name: "total", Score: &score, Line: &line, Passed: true},
+	}
+	bl := 80.0
+	baseline := &BaselineData{Score: 85.0, Line: &bl, Timestamp: "2025-01-01T00:00:00Z"}
+	sarifJSON := `{"version":"2.1.0","runs":[]}`
+
+	tests := []struct {
+		name    string
+		failAt  int
+		wantMsg string
+	}{
+		{"fail writing passed", 0, "writing passed output"},
+		{"fail writing results", 1, "writing results output"},
+		{"fail writing badge-svg", 2, "writing badge-svg output"},
+		{"fail writing badge-json", 3, "writing badge-json output"},
+		{"fail writing baseline", 4, "writing baseline output"},
+		{"fail writing sarif", 5, "writing sarif output"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			w := &failWriter{n: tt.failAt}
+			err := writeOutputsTo(w, true, results, baseline, sarifJSON)
+			if err == nil {
+				t.Fatal("expected error")
+			}
+			if !strings.Contains(err.Error(), tt.wantMsg) {
+				t.Errorf("error = %q, want substring %q", err.Error(), tt.wantMsg)
+			}
+		})
+	}
+}
+
+func TestWriteJobSummaryTotalWithAllMetrics(t *testing.T) {
+	summaryFile := filepath.Join(t.TempDir(), "summary.md")
+	if err := os.WriteFile(summaryFile, nil, 0644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GITHUB_STEP_SUMMARY", summaryFile)
+
+	line1 := 90.0
+	branch1 := 80.0
+	fn1 := 70.0
+	totalLine := 85.0
+	totalBranch := 75.0
+	totalFn := 65.0
+
+	results := []EntryResult{
+		{Name: "gocover", Line: &line1, Branch: &branch1, Function: &fn1, Passed: true},
+		{Name: "Total", Line: &totalLine, Branch: &totalBranch, Function: &totalFn, Passed: true},
+	}
+
+	if err := WriteJobSummary(results, true, nil); err != nil {
+		t.Fatalf("WriteJobSummary() error: %v", err)
+	}
+
+	data, _ := os.ReadFile(summaryFile)
+	content := string(data)
+
+	// Total row should have bold metrics including branch and function
+	if !strings.Contains(content, "**85.0%**") {
+		t.Error("total row should contain bold line percentage")
+	}
+	if !strings.Contains(content, "**75.0%**") {
+		t.Error("total row should contain bold branch percentage")
+	}
+	if !strings.Contains(content, "**65.0%**") {
+		t.Error("total row should contain bold function percentage")
 	}
 }

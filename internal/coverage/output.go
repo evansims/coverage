@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 )
@@ -195,7 +196,13 @@ func WriteOutputs(passed bool, results []EntryResult, baseline *BaselineData, sa
 		}
 	}()
 
-	if _, err = fmt.Fprintf(f, "passed=%v\n", passed); err != nil {
+	return writeOutputsTo(f, passed, results, baseline, sarifJSON)
+}
+
+// writeOutputsTo writes action outputs to the given writer.
+// Extracted for testability — allows injecting a failing writer.
+func writeOutputsTo(w io.Writer, passed bool, results []EntryResult, baseline *BaselineData, sarifJSON string) error {
+	if _, err := fmt.Fprintf(w, "passed=%v\n", passed); err != nil {
 		return fmt.Errorf("writing passed output: %w", err)
 	}
 
@@ -206,7 +213,7 @@ func WriteOutputs(passed bool, results []EntryResult, baseline *BaselineData, sa
 
 	// Use randomized multiline delimiter syntax to prevent output injection
 	delimiter := randomDelimiter("COVERLINT_RESULTS")
-	if _, err = fmt.Fprintf(f, "results<<%s\n%s\n%s\n", delimiter, string(resultsJSON), delimiter); err != nil {
+	if _, err = fmt.Fprintf(w, "results<<%s\n%s\n%s\n", delimiter, string(resultsJSON), delimiter); err != nil {
 		return fmt.Errorf("writing results output: %w", err)
 	}
 
@@ -216,13 +223,13 @@ func WriteOutputs(passed bool, results []EntryResult, baseline *BaselineData, sa
 		if total.Score != nil {
 			svgDelimiter := randomDelimiter("COVERLINT_SVG")
 			svg := GenerateBadgeSVG(*total.Score)
-			if _, err = fmt.Fprintf(f, "badge-svg<<%s\n%s\n%s\n", svgDelimiter, svg, svgDelimiter); err != nil {
+			if _, err = fmt.Fprintf(w, "badge-svg<<%s\n%s\n%s\n", svgDelimiter, svg, svgDelimiter); err != nil {
 				return fmt.Errorf("writing badge-svg output: %w", err)
 			}
 
 			jsonDelimiter := randomDelimiter("COVERLINT_JSON")
 			badgeJSON := GenerateBadgeJSON(*total.Score)
-			if _, err = fmt.Fprintf(f, "badge-json<<%s\n%s\n%s\n", jsonDelimiter, badgeJSON, jsonDelimiter); err != nil {
+			if _, err = fmt.Fprintf(w, "badge-json<<%s\n%s\n%s\n", jsonDelimiter, badgeJSON, jsonDelimiter); err != nil {
 				return fmt.Errorf("writing badge-json output: %w", err)
 			}
 		}
@@ -234,14 +241,14 @@ func WriteOutputs(passed bool, results []EntryResult, baseline *BaselineData, sa
 			return fmt.Errorf("marshaling baseline: %w", merr)
 		}
 		baselineDelimiter := randomDelimiter("COVERLINT_BASELINE")
-		if _, err = fmt.Fprintf(f, "baseline<<%s\n%s\n%s\n", baselineDelimiter, string(baselineJSON), baselineDelimiter); err != nil {
+		if _, err = fmt.Fprintf(w, "baseline<<%s\n%s\n%s\n", baselineDelimiter, string(baselineJSON), baselineDelimiter); err != nil {
 			return fmt.Errorf("writing baseline output: %w", err)
 		}
 	}
 
 	if sarifJSON != "" {
 		sarifDelimiter := randomDelimiter("COVERLINT_SARIF")
-		if _, err = fmt.Fprintf(f, "sarif<<%s\n%s\n%s\n", sarifDelimiter, sarifJSON, sarifDelimiter); err != nil {
+		if _, err = fmt.Fprintf(w, "sarif<<%s\n%s\n%s\n", sarifDelimiter, sarifJSON, sarifDelimiter); err != nil {
 			return fmt.Errorf("writing sarif output: %w", err)
 		}
 	}

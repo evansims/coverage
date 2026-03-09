@@ -222,6 +222,88 @@ func TestSanitizeSARIFPathLength(t *testing.T) {
 	}
 }
 
+func TestBlockMessage(t *testing.T) {
+	tests := []struct {
+		start int
+		end   int
+		want  string
+	}{
+		{5, 5, "Block at line 5 is not covered by tests"},
+		{5, 10, "Block at lines 5-10 is not covered by tests"},
+		{1, 1, "Block at line 1 is not covered by tests"},
+	}
+	for _, tt := range tests {
+		got := blockMessage(tt.start, tt.end)
+		if got != tt.want {
+			t.Errorf("blockMessage(%d, %d) = %q, want %q", tt.start, tt.end, got, tt.want)
+		}
+	}
+}
+
+func TestGenerateSARIF_BlockSameLine(t *testing.T) {
+	// Block where startLine == endLine should NOT set EndLine
+	blockDetails := map[string]map[string]*BlockEntry{
+		"pkg/handler.go": {
+			"pkg/handler.go:5.1,5.10": {Stmts: 1, Count: 0}, // same line
+		},
+	}
+
+	doc := GenerateSARIF(nil, blockDetails, defaultSARIFMaxResults)
+
+	if len(doc.Runs[0].Results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(doc.Runs[0].Results))
+	}
+
+	region := doc.Runs[0].Results[0].Locations[0].PhysicalLocation.Region
+	if region.StartLine != 5 {
+		t.Errorf("startLine = %d, want 5", region.StartLine)
+	}
+	if region.EndLine != 0 {
+		t.Errorf("endLine = %d, want 0 (omitted for same line)", region.EndLine)
+	}
+}
+
+func TestGenerateSARIF_FileWithNilLines(t *testing.T) {
+	// File detail with nil Lines map should be skipped
+	fileDetails := map[string]*FileLineDetail{
+		"empty.go": {Lines: nil},
+		"real.go":  {Lines: map[int]int64{1: 0}},
+	}
+
+	doc := GenerateSARIF(fileDetails, nil, defaultSARIFMaxResults)
+
+	// Only real.go should produce a result
+	if len(doc.Runs[0].Results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(doc.Runs[0].Results))
+	}
+	uri := doc.Runs[0].Results[0].Locations[0].PhysicalLocation.ArtifactLocation.URI
+	if uri != "real.go" {
+		t.Errorf("expected real.go, got %s", uri)
+	}
+}
+
+func TestGenerateSARIF_BlockMultipleFiles(t *testing.T) {
+	blockDetails := map[string]map[string]*BlockEntry{
+		"b.go": {
+			"b.go:10.1,20.1": {Stmts: 3, Count: 0},
+		},
+		"a.go": {
+			"a.go:5.1,15.1": {Stmts: 2, Count: 0},
+		},
+	}
+
+	doc := GenerateSARIF(nil, blockDetails, defaultSARIFMaxResults)
+
+	if len(doc.Runs[0].Results) != 2 {
+		t.Fatalf("expected 2 results, got %d", len(doc.Runs[0].Results))
+	}
+	// Should be sorted: a.go before b.go
+	firstURI := doc.Runs[0].Results[0].Locations[0].PhysicalLocation.ArtifactLocation.URI
+	if firstURI != "a.go" {
+		t.Errorf("expected a.go first (sorted), got %s", firstURI)
+	}
+}
+
 func TestGenerateSARIF_ResultMessage(t *testing.T) {
 	fileDetails := map[string]*FileLineDetail{
 		"main.go": {Lines: map[int]int64{10: 0}},

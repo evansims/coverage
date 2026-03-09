@@ -231,6 +231,97 @@ func TestParseJacocoAmplificationCap(t *testing.T) {
 	}
 }
 
+func TestParseJacocoMissedBranchExpansionCap(t *testing.T) {
+	// Verify missed branches also use aggregate when exceeding cap
+	data := []byte(`<?xml version="1.0"?>
+<report name="MissedBranch">
+  <package name="com/example">
+    <sourcefile name="Missed.java">
+      <line nr="1" mi="0" ci="1" mb="999999999" cb="0"/>
+      <counter type="LINE" missed="0" covered="1"/>
+      <counter type="BRANCH" missed="999999999" covered="0"/>
+      <counter type="METHOD" missed="0" covered="1"/>
+    </sourcefile>
+  </package>
+  <counter type="LINE" missed="0" covered="1"/>
+  <counter type="BRANCH" missed="999999999" covered="0"/>
+  <counter type="METHOD" missed="0" covered="1"/>
+</report>`)
+
+	result, err := parseJacoco(data)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	detail := result.FileDetails["com/example/Missed.java"]
+	if detail == nil {
+		t.Fatal("expected file detail")
+	}
+	// Should use aggregate entries, not expand billions
+	if len(detail.Branches) > int(maxJacocoCounterExpansion) {
+		t.Errorf("branch entries = %d, should be capped", len(detail.Branches))
+	}
+}
+
+func TestParseJacocoMissedMethodExpansionCap(t *testing.T) {
+	// Verify missed methods also use aggregate when exceeding cap
+	data := []byte(`<?xml version="1.0"?>
+<report name="MissedMethod">
+  <package name="com/example">
+    <sourcefile name="Methods.java">
+      <line nr="1" mi="0" ci="1" mb="0" cb="0"/>
+      <counter type="LINE" missed="0" covered="1"/>
+      <counter type="METHOD" missed="999999999" covered="0"/>
+    </sourcefile>
+  </package>
+  <counter type="LINE" missed="0" covered="1"/>
+  <counter type="METHOD" missed="999999999" covered="0"/>
+</report>`)
+
+	result, err := parseJacoco(data)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	detail := result.FileDetails["com/example/Methods.java"]
+	if detail == nil {
+		t.Fatal("expected file detail")
+	}
+	if len(detail.Functions) > int(maxJacocoCounterExpansion) {
+		t.Errorf("function entries = %d, should be capped", len(detail.Functions))
+	}
+}
+
+func TestParseJacocoNormalMethodExpansion(t *testing.T) {
+	// Small method counts should expand normally
+	data := []byte(`<?xml version="1.0"?>
+<report name="NormalMethod">
+  <package name="com/example">
+    <sourcefile name="Small.java">
+      <line nr="1" mi="0" ci="1" mb="0" cb="0"/>
+      <counter type="LINE" missed="0" covered="1"/>
+      <counter type="METHOD" missed="2" covered="3"/>
+    </sourcefile>
+  </package>
+  <counter type="LINE" missed="0" covered="1"/>
+  <counter type="METHOD" missed="2" covered="3"/>
+</report>`)
+
+	result, err := parseJacoco(data)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	detail := result.FileDetails["com/example/Small.java"]
+	if detail == nil {
+		t.Fatal("expected file detail")
+	}
+	// 3 covered + 2 missed = 5 individual entries
+	if len(detail.Functions) != 5 {
+		t.Errorf("function entries = %d, want 5", len(detail.Functions))
+	}
+}
+
 func TestParseJacocoZeroMethod(t *testing.T) {
 	// Report with zero methods should not set Function metric
 	data := []byte(`<?xml version="1.0"?>

@@ -147,6 +147,89 @@ func TestParseCloverInvalidXML(t *testing.T) {
 	}
 }
 
+func TestParseCloverEmptyFileNameAndPath(t *testing.T) {
+	// File with both name="" and path="" should be skipped
+	data := []byte(`<?xml version="1.0"?>
+<coverage>
+  <project>
+    <metrics statements="10" coveredstatements="8" conditionals="0" coveredconditionals="0" methods="2" coveredmethods="2"/>
+    <file name="" path="">
+      <metrics statements="10" coveredstatements="8" conditionals="0" coveredconditionals="0" methods="2" coveredmethods="2"/>
+      <line num="1" type="stmt" count="5"/>
+    </file>
+  </project>
+</coverage>`)
+
+	result, err := parseClover(data)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// The file with empty name/path should be skipped in details but project metrics still used
+	if result.Line == nil {
+		t.Fatal("expected line metric from project-level counters")
+	}
+	// FileDetails should be empty since the file name was empty
+	if len(result.FileDetails) != 0 {
+		t.Errorf("expected 0 file details (empty name skipped), got %d", len(result.FileDetails))
+	}
+}
+
+func TestParseCloverFileWithPathPreferred(t *testing.T) {
+	// When both name and path are set, path should be preferred
+	data := []byte(`<?xml version="1.0"?>
+<coverage>
+  <project>
+    <metrics statements="5" coveredstatements="3" conditionals="0" coveredconditionals="0" methods="1" coveredmethods="1"/>
+    <package name="pkg">
+      <file name="Foo.php" path="src/Foo.php">
+        <metrics statements="5" coveredstatements="3" conditionals="0" coveredconditionals="0" methods="1" coveredmethods="1"/>
+        <line num="1" type="stmt" count="1"/>
+      </file>
+    </package>
+  </project>
+</coverage>`)
+
+	result, err := parseClover(data)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if _, ok := result.FileDetails["src/Foo.php"]; !ok {
+		t.Error("expected FileDetails keyed by path, not name")
+	}
+}
+
+func TestParseCloverZeroStatementsFile(t *testing.T) {
+	// File with zero statements should be excluded from suggestions
+	data := []byte(`<?xml version="1.0"?>
+<coverage>
+  <project>
+    <metrics statements="5" coveredstatements="3" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+    <file name="real.php" path="src/real.php">
+      <metrics statements="5" coveredstatements="3" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+      <line num="1" type="stmt" count="1"/>
+    </file>
+    <file name="empty.php" path="src/empty.php">
+      <metrics statements="0" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+    </file>
+  </project>
+</coverage>`)
+
+	result, err := parseClover(data)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Only real.php should appear in Files
+	if len(result.Files) != 1 {
+		t.Errorf("expected 1 file in suggestions, got %d", len(result.Files))
+	}
+	if len(result.Files) > 0 && result.Files[0].Path != "src/real.php" {
+		t.Errorf("expected src/real.php, got %s", result.Files[0].Path)
+	}
+}
+
 func TestParseCloverRejectsEntities(t *testing.T) {
 	data := []byte(`<?xml version="1.0"?><!DOCTYPE coverage [<!ENTITY a "x">]><coverage/>`)
 	_, err := parseClover(data)

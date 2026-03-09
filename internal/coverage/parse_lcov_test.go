@@ -3,6 +3,7 @@ package coverage
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -262,6 +263,178 @@ end_of_record
 	if detail.Functions["main"] != 3 {
 		t.Errorf("function main count = %d, want 3", detail.Functions["main"])
 	}
+}
+
+func TestParseLcovSummaryFallbackNoBranches(t *testing.T) {
+	// LCOV with summary lines only, no branches or functions
+	data := []byte(`SF:src/app.js
+LF:100
+LH:80
+end_of_record
+`)
+
+	result, err := parseLcov(data)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	assertMetric(t, "line", result.Line, &Metric{Hit: 80, Total: 100})
+	if result.Branch != nil {
+		t.Error("expected nil branch when no BRF data")
+	}
+	if result.Function != nil {
+		t.Error("expected nil function when no FNF data")
+	}
+}
+
+func TestParseLcovSummaryFallbackDuplicateFiles(t *testing.T) {
+	// Summary-only LCOV with duplicate source files should accumulate
+	data := []byte(`SF:src/app.js
+LF:100
+LH:80
+BRF:10
+BRH:5
+FNF:5
+FNH:3
+end_of_record
+SF:src/app.js
+LF:50
+LH:40
+BRF:10
+BRH:8
+FNF:5
+FNH:5
+end_of_record
+`)
+
+	result, err := parseLcov(data)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Summaries should accumulate for duplicate files
+	assertMetric(t, "line", result.Line, &Metric{Hit: 120, Total: 150})
+	assertMetric(t, "branch", result.Branch, &Metric{Hit: 13, Total: 20})
+	assertMetric(t, "function", result.Function, &Metric{Hit: 8, Total: 10})
+}
+
+func TestParseLcovBlankLines(t *testing.T) {
+	// LCOV with blank and whitespace lines should be handled
+	data := []byte(`
+SF:src/main.go
+
+DA:1,1
+DA:2,0
+
+end_of_record
+`)
+
+	result, err := parseLcov(data)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	assertMetric(t, "line", result.Line, &Metric{Hit: 1, Total: 2})
+}
+
+func TestParseLcovDuplicateSourceFileBranchMerge(t *testing.T) {
+	// Test that duplicate source files merge branches and functions using max semantics
+	data := []byte(`SF:src/main.go
+DA:1,1
+BRDA:1,0,0,2
+BRDA:1,0,1,0
+FNDA:3,main
+FNDA:0,helper
+end_of_record
+SF:src/main.go
+DA:1,5
+BRDA:1,0,0,1
+BRDA:1,0,1,3
+FNDA:1,main
+FNDA:2,helper
+end_of_record
+`)
+
+	result, err := parseLcov(data)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	detail := result.FileDetails["src/main.go"]
+	if detail == nil {
+		t.Fatal("expected detail for src/main.go")
+	}
+
+	// Lines: max(1, 5) = 5
+	if detail.Lines[1] != 5 {
+		t.Errorf("line 1 count = %d, want 5 (max merge)", detail.Lines[1])
+	}
+
+	// Branches: "1:0:0" = max(2,1)=2, "1:0:1" = max(0,3)=3
+	if detail.Branches["1:0:0"] != 2 {
+		t.Errorf("branch 1:0:0 = %d, want 2", detail.Branches["1:0:0"])
+	}
+	if detail.Branches["1:0:1"] != 3 {
+		t.Errorf("branch 1:0:1 = %d, want 3", detail.Branches["1:0:1"])
+	}
+
+	// Functions: main = max(3,1)=3, helper = max(0,2)=2
+	if detail.Functions["main"] != 3 {
+		t.Errorf("function main = %d, want 3", detail.Functions["main"])
+	}
+	if detail.Functions["helper"] != 2 {
+		t.Errorf("function helper = %d, want 2", detail.Functions["helper"])
+	}
+}
+
+func TestParseLcovDABadLineNumber(t *testing.T) {
+	// DA where line number is not an integer — should skip
+	data := []byte(`SF:src/main.go
+DA:1,1
+DA:notanumber,5
+DA:3,1
+end_of_record
+`)
+	result, err := parseLcov(data)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// Only lines 1 and 3 should be counted
+	assertMetric(t, "line", result.Line, &Metric{Hit: 2, Total: 2})
+}
+
+func TestParseLcovScannerError(t *testing.T) {
+	// Create data with a line exceeding bufio.Scanner's max token size (64KB)
+	longLine := make([]byte, 70000)
+	for i := range longLine {
+		longLine[i] = 'x'
+	}
+	data := append([]byte("SF:src/main.go\nDA:1,1\n"), longLine...)
+	data = append(data, '\n')
+
+	_, err := parseLcov(data)
+	if err == nil {
+		t.Fatal("expected error for extremely long line")
+	}
+	if !strings.Contains(err.Error(), "reading lcov data") {
+		t.Errorf("error should mention reading: %v", err)
+	}
+}
+
+func TestParseLcovMalformedFNDA(t *testing.T) {
+	// FNDA with insufficient parts
+	data := []byte(`SF:src/main.go
+DA:1,1
+FNDA:nopair
+FN:badline
+end_of_record
+`)
+
+	result, err := parseLcov(data)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// Only the DA line should contribute
+	assertMetric(t, "line", result.Line, &Metric{Hit: 1, Total: 1})
 }
 
 func assertMetric(t *testing.T, name string, got, want *Metric) {

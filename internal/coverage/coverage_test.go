@@ -489,6 +489,411 @@ func TestBuildEntryResult(t *testing.T) {
 	})
 }
 
+func TestRunWithBaseline(t *testing.T) {
+	setupGitHubEnv(t)
+
+	fixtureDir := filepath.Join("..", "..", "testdata", "lcov")
+
+	// Create a baseline JSON that has a higher score than what we'll get
+	baselineJSON := `{"score":99.0,"line":99.0,"timestamp":"2025-01-01T00:00:00Z"}`
+
+	setInputEnv(t, map[string]string{
+		"INPUT_PATH":              "basic.info",
+		"INPUT_FORMAT":            "lcov",
+		"INPUT_WORKING-DIRECTORY": fixtureDir,
+		"INPUT_BASELINE":          baselineJSON,
+		"INPUT_MIN-DELTA":         "-5",
+		"INPUT_FAIL-ON-ERROR":     "true",
+	})
+
+	err := Run()
+	if err == nil {
+		t.Fatal("expected error when baseline delta violation occurs")
+	}
+}
+
+func TestRunWithBaselinePassingDelta(t *testing.T) {
+	setupGitHubEnv(t)
+
+	fixtureDir := filepath.Join("..", "..", "testdata", "lcov")
+
+	// Baseline with very low score so delta is positive
+	baselineJSON := `{"score":10.0,"timestamp":"2025-01-01T00:00:00Z"}`
+
+	setInputEnv(t, map[string]string{
+		"INPUT_PATH":              "basic.info",
+		"INPUT_FORMAT":            "lcov",
+		"INPUT_WORKING-DIRECTORY": fixtureDir,
+		"INPUT_BASELINE":          baselineJSON,
+		"INPUT_MIN-DELTA":         "-50",
+	})
+
+	if err := Run(); err != nil {
+		t.Fatalf("Run() with passing baseline delta returned error: %v", err)
+	}
+}
+
+func TestRunWithBaselineDeltaFailOnErrorFalse(t *testing.T) {
+	setupGitHubEnv(t)
+
+	fixtureDir := filepath.Join("..", "..", "testdata", "lcov")
+
+	baselineJSON := `{"score":99.0,"timestamp":"2025-01-01T00:00:00Z"}`
+
+	setInputEnv(t, map[string]string{
+		"INPUT_PATH":              "basic.info",
+		"INPUT_FORMAT":            "lcov",
+		"INPUT_WORKING-DIRECTORY": fixtureDir,
+		"INPUT_BASELINE":          baselineJSON,
+		"INPUT_MIN-DELTA":         "-1",
+		"INPUT_FAIL-ON-ERROR":     "false",
+	})
+
+	// Should not error because fail-on-error is false
+	if err := Run(); err != nil {
+		t.Fatalf("Run() should not error with fail-on-error=false even with baseline violation: %v", err)
+	}
+}
+
+func TestRunWithInvalidBaseline(t *testing.T) {
+	setupGitHubEnv(t)
+
+	fixtureDir := filepath.Join("..", "..", "testdata", "lcov")
+
+	setInputEnv(t, map[string]string{
+		"INPUT_PATH":              "basic.info",
+		"INPUT_FORMAT":            "lcov",
+		"INPUT_WORKING-DIRECTORY": fixtureDir,
+		"INPUT_BASELINE":          "not valid json",
+	})
+
+	// Should still succeed — invalid baseline is a warning, not an error
+	if err := Run(); err != nil {
+		t.Fatalf("Run() should not error with invalid baseline (just warns): %v", err)
+	}
+}
+
+func TestRunMinDeltaWithoutBaseline(t *testing.T) {
+	setupGitHubEnv(t)
+
+	fixtureDir := filepath.Join("..", "..", "testdata", "lcov")
+
+	setInputEnv(t, map[string]string{
+		"INPUT_PATH":              "basic.info",
+		"INPUT_FORMAT":            "lcov",
+		"INPUT_WORKING-DIRECTORY": fixtureDir,
+		"INPUT_MIN-DELTA":         "-5",
+	})
+
+	// Should succeed with a warning about min-delta without baseline
+	if err := Run(); err != nil {
+		t.Fatalf("Run() with min-delta but no baseline should warn, not error: %v", err)
+	}
+}
+
+func TestRunWithSARIF(t *testing.T) {
+	outputFile, _ := setupGitHubEnv(t)
+
+	fixtureDir := filepath.Join("..", "..", "testdata", "lcov")
+
+	setInputEnv(t, map[string]string{
+		"INPUT_PATH":              "basic.info",
+		"INPUT_FORMAT":            "lcov",
+		"INPUT_WORKING-DIRECTORY": fixtureDir,
+		"INPUT_SARIF":             "true",
+	})
+
+	if err := Run(); err != nil {
+		t.Fatalf("Run() with SARIF returned error: %v", err)
+	}
+
+	data, _ := os.ReadFile(outputFile)
+	content := string(data)
+
+	if !strings.Contains(content, "sarif<<COVERLINT_SARIF_") {
+		t.Error("output should contain SARIF data")
+	}
+	if !strings.Contains(content, "coverage/uncovered-line") {
+		t.Error("SARIF should contain uncovered-line rule")
+	}
+}
+
+func TestRunWithSARIFGocover(t *testing.T) {
+	outputFile, _ := setupGitHubEnv(t)
+
+	dir := t.TempDir()
+	src := filepath.Join("..", "..", "testdata", "gocover", "basic.out")
+	data, err := os.ReadFile(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "cover.out"), data, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	setInputEnv(t, map[string]string{
+		"INPUT_PATH":              "cover.out",
+		"INPUT_FORMAT":            "gocover",
+		"INPUT_WORKING-DIRECTORY": dir,
+		"INPUT_SARIF":             "true",
+	})
+
+	if err := Run(); err != nil {
+		t.Fatalf("Run() with SARIF gocover returned error: %v", err)
+	}
+
+	output, _ := os.ReadFile(outputFile)
+	content := string(output)
+
+	if !strings.Contains(content, "sarif") {
+		t.Error("output should contain SARIF data for gocover")
+	}
+}
+
+func TestRunPassedWithAllMetrics(t *testing.T) {
+	setupGitHubEnv(t)
+
+	fixtureDir := filepath.Join("..", "..", "testdata", "lcov")
+
+	setInputEnv(t, map[string]string{
+		"INPUT_PATH":              "basic.info",
+		"INPUT_FORMAT":            "lcov",
+		"INPUT_WORKING-DIRECTORY": fixtureDir,
+		"INPUT_MIN-LINE":          "50",
+		"INPUT_MIN-BRANCH":        "30",
+		"INPUT_MIN-FUNCTION":      "50",
+		"INPUT_MIN-COVERAGE":      "50",
+	})
+
+	if err := Run(); err != nil {
+		t.Fatalf("Run() returned error: %v", err)
+	}
+}
+
+func TestRunAutoDiscoverNoReports(t *testing.T) {
+	setupGitHubEnv(t)
+
+	dir := t.TempDir()
+
+	setInputEnv(t, map[string]string{
+		"INPUT_WORKING-DIRECTORY": dir,
+	})
+
+	err := Run()
+	if err == nil {
+		t.Fatal("expected error when no reports found")
+	}
+}
+
+func TestRunExplicitFormatNoDiscover(t *testing.T) {
+	setupGitHubEnv(t)
+
+	dir := t.TempDir()
+
+	setInputEnv(t, map[string]string{
+		"INPUT_FORMAT":            "lcov",
+		"INPUT_WORKING-DIRECTORY": dir,
+	})
+
+	err := Run()
+	if err == nil {
+		t.Fatal("expected error when explicit format but no files discovered")
+	}
+}
+
+func TestRunExplicitPathsParseError(t *testing.T) {
+	setupGitHubEnv(t)
+
+	dir := t.TempDir()
+	// Create a file that no parser can handle
+	if err := os.WriteFile(filepath.Join(dir, "bad.txt"), []byte("not a coverage file"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	setInputEnv(t, map[string]string{
+		"INPUT_PATH":              "bad.txt",
+		"INPUT_FORMAT":            "gocover",
+		"INPUT_WORKING-DIRECTORY": dir,
+	})
+
+	err := Run()
+	if err == nil {
+		t.Fatal("expected error when explicit path can't be parsed")
+	}
+}
+
+func TestRunAutoFormatNoParseableReports(t *testing.T) {
+	setupGitHubEnv(t)
+
+	dir := t.TempDir()
+	// Create a file at a default path but with invalid content
+	if err := os.WriteFile(filepath.Join(dir, "cover.out"), []byte("not valid"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	setInputEnv(t, map[string]string{
+		"INPUT_WORKING-DIRECTORY": dir,
+	})
+
+	err := Run()
+	if err == nil {
+		t.Fatal("expected error when auto-discovered files can't be parsed")
+	}
+}
+
+func TestRunAutoFormatDiscoverError(t *testing.T) {
+	setupGitHubEnv(t)
+
+	// Empty dir with no coverage files — auto-discover should fail
+	dir := t.TempDir()
+
+	setInputEnv(t, map[string]string{
+		"INPUT_WORKING-DIRECTORY": dir,
+	})
+
+	err := Run()
+	if err == nil {
+		t.Fatal("expected error when auto-discovery finds nothing")
+	}
+}
+
+func TestRunAutoFormatParseError(t *testing.T) {
+	setupGitHubEnv(t)
+
+	dir := t.TempDir()
+	// Create coverage.xml (matches cobertura AND clover), but with unparseable content
+	if err := os.WriteFile(filepath.Join(dir, "coverage.xml"), []byte("<garbage/>"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	setInputEnv(t, map[string]string{
+		"INPUT_WORKING-DIRECTORY": dir,
+	})
+
+	err := Run()
+	if err == nil {
+		t.Fatal("expected error when auto-discovered files fail to parse")
+	}
+}
+
+func TestRunExplicitFormatDiscoverAndParseError(t *testing.T) {
+	setupGitHubEnv(t)
+
+	dir := t.TempDir()
+	// Create gocover file with bad content
+	if err := os.WriteFile(filepath.Join(dir, "cover.out"), []byte("bad content"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	setInputEnv(t, map[string]string{
+		"INPUT_FORMAT":            "gocover",
+		"INPUT_WORKING-DIRECTORY": dir,
+	})
+
+	err := Run()
+	if err == nil {
+		t.Fatal("expected error when discovered file fails to parse")
+	}
+}
+
+func TestRunExplicitPathParseWithFormatsError(t *testing.T) {
+	setupGitHubEnv(t)
+
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "cover.out"), []byte("not valid"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	setInputEnv(t, map[string]string{
+		"INPUT_PATH":              "cover.out",
+		"INPUT_FORMAT":            "gocover",
+		"INPUT_WORKING-DIRECTORY": dir,
+	})
+
+	err := Run()
+	if err == nil {
+		t.Fatal("expected error when explicit path fails to parse with given format")
+	}
+}
+
+func TestRunExplicitPathResolveFail(t *testing.T) {
+	setupGitHubEnv(t)
+
+	dir := t.TempDir()
+
+	setInputEnv(t, map[string]string{
+		"INPUT_PATH":              "nonexistent.out",
+		"INPUT_FORMAT":            "gocover",
+		"INPUT_WORKING-DIRECTORY": dir,
+	})
+
+	err := Run()
+	if err == nil {
+		t.Fatal("expected error when explicit path doesn't exist")
+	}
+}
+
+func TestRunWithBrokenGitHubEnv(t *testing.T) {
+	// Set invalid paths for GITHUB_OUTPUT and GITHUB_STEP_SUMMARY
+	// to trigger the warning paths in Run
+	t.Setenv("GITHUB_OUTPUT", "/nonexistent/path/output")
+	t.Setenv("GITHUB_STEP_SUMMARY", "/nonexistent/path/summary")
+
+	fixtureDir := filepath.Join("..", "..", "testdata", "lcov")
+
+	setInputEnv(t, map[string]string{
+		"INPUT_PATH":              "basic.info",
+		"INPUT_FORMAT":            "lcov",
+		"INPUT_WORKING-DIRECTORY": fixtureDir,
+	})
+
+	// Run should still succeed (broken GitHub env just emits warnings)
+	if err := Run(); err != nil {
+		t.Fatalf("Run() should not error when GitHub env is broken: %v", err)
+	}
+}
+
+func TestRunConfigError(t *testing.T) {
+	setupGitHubEnv(t)
+
+	setInputEnv(t, map[string]string{
+		"INPUT_FORMAT":     "invalid_format",
+	})
+
+	err := Run()
+	if err == nil {
+		t.Fatal("expected error for invalid format")
+	}
+}
+
+func TestRunExplicitPathsAutoDetectFormat(t *testing.T) {
+	outputFile, _ := setupGitHubEnv(t)
+
+	dir := t.TempDir()
+	gocoverData, err := os.ReadFile(filepath.Join("..", "..", "testdata", "gocover", "basic.out"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "cover.out"), gocoverData, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Explicit path, no format — should auto-detect
+	setInputEnv(t, map[string]string{
+		"INPUT_PATH":              "cover.out",
+		"INPUT_WORKING-DIRECTORY": dir,
+	})
+
+	if err := Run(); err != nil {
+		t.Fatalf("Run() with explicit path and auto-detect format returned error: %v", err)
+	}
+
+	output, _ := os.ReadFile(outputFile)
+	if len(output) == 0 {
+		t.Error("expected outputs")
+	}
+}
+
 func TestDiscoverAndParse(t *testing.T) {
 	t.Run("discovers and parses gocover", func(t *testing.T) {
 		dir := t.TempDir()
@@ -538,6 +943,19 @@ func TestDiscoverAndParse(t *testing.T) {
 		_, err := discoverAndParse("gocover", dir, NewAnnotator(AnnotationConfig{Mode: "none"}, io.Discard))
 		if err == nil {
 			t.Fatal("expected error when file fails to parse")
+		}
+	})
+
+	t.Run("errors when discovered file is unreadable", func(t *testing.T) {
+		dir := t.TempDir()
+		f := filepath.Join(dir, "cover.out")
+		if err := os.WriteFile(f, []byte("mode: set\nfoo.go:1.1,2.1 1 1\n"), 0000); err != nil {
+			t.Fatal(err)
+		}
+
+		_, err := discoverAndParse("gocover", dir, NewAnnotator(AnnotationConfig{Mode: "none"}, io.Discard))
+		if err == nil {
+			t.Fatal("expected error when discovered file is unreadable")
 		}
 	})
 

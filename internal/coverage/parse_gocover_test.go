@@ -120,6 +120,25 @@ func TestParseGocoverDuplicateBlocks(t *testing.T) {
 	}
 }
 
+func TestParseGocoverScannerError(t *testing.T) {
+	// Create data with a line exceeding bufio.Scanner's max token size (64KB)
+	// to trigger the scanner.Err() path
+	longLine := make([]byte, 70000)
+	for i := range longLine {
+		longLine[i] = 'x'
+	}
+	data := append([]byte("mode: set\nfoo.go:1.1,5.1 3 1\n"), longLine...)
+	data = append(data, '\n')
+
+	_, err := parseGocover(data)
+	if err == nil {
+		t.Fatal("expected error for extremely long line")
+	}
+	if !strings.Contains(err.Error(), "reading gocover data") {
+		t.Errorf("error should mention reading: %v", err)
+	}
+}
+
 func TestParseGocoverNoBlocks(t *testing.T) {
 	data := []byte("mode: set\n")
 	_, err := parseGocover(data)
