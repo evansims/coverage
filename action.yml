@@ -4,12 +4,13 @@ author: 'evansims'
 
 inputs:
   path:
-    description: 'Path to coverage report file(s). Supports globs (*.out) and comma-separated values. Auto-discovered if omitted.'
+    description: 'Path to coverage report file(s). One per line or comma-separated. Supports globs. Auto-discovered if omitted.'
     required: false
     default: ''
   format:
-    description: 'Coverage format(s): lcov, gocover, cobertura, clover, jacoco. Comma-separated for monorepos (e.g., "gocover,lcov").'
-    required: true
+    description: 'Coverage format(s): lcov, gocover, cobertura, clover, jacoco. One per line or comma-separated. Auto-detected if omitted.'
+    required: false
+    default: ''
   threshold-line:
     description: 'Minimum line coverage percentage (0-100)'
     required: false

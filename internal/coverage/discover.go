@@ -60,6 +60,29 @@ func DiscoverReports(format, workDir string) ([]string, error) {
 	return found, nil
 }
 
+// DiscoverAllReports scans all default paths across all formats and returns
+// any that exist on disk, deduplicated. Used for format auto-detection.
+func DiscoverAllReports(workDir string) ([]string, error) {
+	seen := map[string]bool{}
+	var found []string
+	for _, paths := range defaultPaths {
+		for _, p := range paths {
+			if seen[p] {
+				continue
+			}
+			seen[p] = true
+			full := filepath.Join(workDir, p)
+			if _, err := os.Stat(full); err == nil {
+				found = append(found, p)
+			}
+		}
+	}
+	if len(found) == 0 {
+		return nil, fmt.Errorf("auto-discovery: no coverage reports found in %q", workDir)
+	}
+	return found, nil
+}
+
 // validatePathContainment checks that a resolved path stays within workDir.
 func validatePathContainment(resolvedPath, workDir string) error {
 	absWork, err := filepath.Abs(workDir)
@@ -81,13 +104,7 @@ func validatePathContainment(resolvedPath, workDir string) error {
 // to workDir. Returns an error if no files match or if any path
 // escapes the working directory.
 func ResolvePaths(pathInput, workDir string) ([]string, error) {
-	var patterns []string
-	for _, p := range strings.Split(pathInput, ",") {
-		p = strings.TrimSpace(p)
-		if p != "" {
-			patterns = append(patterns, p)
-		}
-	}
+	patterns := splitList(pathInput)
 
 	seen := map[string]bool{}
 	var resolved []string

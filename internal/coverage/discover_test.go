@@ -92,6 +92,72 @@ func TestDiscoverReports(t *testing.T) {
 	})
 }
 
+func TestDiscoverAllReports(t *testing.T) {
+	t.Run("finds reports across formats", func(t *testing.T) {
+		dir := t.TempDir()
+		// Create a gocover file and an lcov file
+		if err := os.WriteFile(filepath.Join(dir, "cover.out"), []byte("mode: set\n"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "lcov.info"), []byte("SF:foo\nend_of_record\n"), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		paths, err := DiscoverAllReports(dir)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(paths) < 2 {
+			t.Errorf("expected at least 2 paths, got %d: %v", len(paths), paths)
+		}
+		// Both should be found
+		found := map[string]bool{}
+		for _, p := range paths {
+			found[p] = true
+		}
+		if !found["cover.out"] {
+			t.Error("expected cover.out to be discovered")
+		}
+		if !found["lcov.info"] {
+			t.Error("expected lcov.info to be discovered")
+		}
+	})
+
+	t.Run("deduplicates shared paths", func(t *testing.T) {
+		dir := t.TempDir()
+		// coverage.xml is shared between cobertura and clover
+		if err := os.WriteFile(filepath.Join(dir, "coverage.xml"), []byte("<coverage/>"), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		paths, err := DiscoverAllReports(dir)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		// coverage.xml should appear only once despite being in both cobertura and clover defaults
+		count := 0
+		for _, p := range paths {
+			if p == "coverage.xml" {
+				count++
+			}
+		}
+		if count != 1 {
+			t.Errorf("expected coverage.xml exactly once, found %d times in %v", count, paths)
+		}
+	})
+
+	t.Run("returns error when nothing found", func(t *testing.T) {
+		dir := t.TempDir()
+		_, err := DiscoverAllReports(dir)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if !strings.Contains(err.Error(), "no coverage reports found") {
+			t.Errorf("error should mention no coverage reports: %v", err)
+		}
+	})
+}
+
 func TestResolvePaths(t *testing.T) {
 	t.Run("resolves single literal path", func(t *testing.T) {
 		dir := t.TempDir()
@@ -136,6 +202,24 @@ func TestResolvePaths(t *testing.T) {
 		}
 
 		paths, err := ResolvePaths("*.out", dir)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(paths) != 2 {
+			t.Errorf("expected 2 paths, got %d: %v", len(paths), paths)
+		}
+	})
+
+	t.Run("resolves newline-separated paths", func(t *testing.T) {
+		dir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(dir, "unit.out"), []byte("mode: set\n"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "integration.out"), []byte("mode: set\n"), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		paths, err := ResolvePaths("unit.out\nintegration.out", dir)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}

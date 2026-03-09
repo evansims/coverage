@@ -19,30 +19,34 @@ Add to your workflow after your test step:
 ```yaml
 - uses: evansims/coverlint@v1
   with:
-    format: gocover
+    format: gocover       # recommended; auto-detected if omitted
     threshold-line: 80
 ```
 
 ### Inputs
 
-| Input                | Default | Required | Description                                                                                      |
-| -------------------- | ------- | -------- | ------------------------------------------------------------------------------------------------ |
-| `format`             |         | yes      | Coverage format(s). Comma-separated for multiple (e.g., `gocover,lcov,cobertura`)                |
-| `path`               |         | no       | Path(s) to coverage files. Supports globs and comma-separated values. Auto-discovered if omitted |
-| `threshold-line`     |         | no       | Minimum line coverage percentage (0-100)                                                         |
-| `threshold-branch`   |         | no       | Minimum branch coverage percentage (0-100)                                                       |
-| `threshold-function` |         | no       | Minimum function coverage percentage (0-100)                                                     |
-| `working-directory`  | `.`     | no       | Working directory for resolving relative paths                                                   |
-| `fail-on-error`      | `true`  | no       | Fail the action when thresholds are not met                                                      |
-| `suggestions`        | `true`  | no       | Show top coverage improvement opportunities in job summary                                       |
+| Input                | Default | Description                                                                                           |
+| -------------------- | ------- | ----------------------------------------------------------------------------------------------------- |
+| `format`             |         | Coverage format(s), one per line or comma-separated. Auto-detected if omitted                         |
+| `path`               |         | Path(s) to coverage files, one per line or comma-separated. Supports globs. Auto-discovered if omitted |
+| `threshold-line`     |         | Minimum line coverage percentage (0-100)                                                              |
+| `threshold-branch`   |         | Minimum branch coverage percentage (0-100)                                                            |
+| `threshold-function` |         | Minimum function coverage percentage (0-100)                                                          |
+| `working-directory`  | `.`     | Working directory for resolving relative paths                                                        |
+| `fail-on-error`      | `true`  | Fail the action when thresholds are not met                                                           |
+| `suggestions`        | `true`  | Show top coverage improvement opportunities in job summary                                            |
 
 When no thresholds are configured, coverlint reports coverage metrics without enforcing any minimums. This is useful for analytics and tracking coverage trends.
 
 If a threshold is configured but the coverage format doesn't report that metric (e.g., `threshold-branch` with `gocover`), the threshold is skipped and a notice annotation is emitted.
 
+### Auto-Detection
+
+When `format` is omitted, coverlint tries each parser in priority order (gocover, lcov, jacoco, cobertura, clover) against each discovered file until one succeeds. Specifying `format` explicitly is recommended — it's faster and avoids ambiguity when files could match multiple formats (e.g., `coverage.xml` could be Cobertura or Clover).
+
 ### Auto-Discovery
 
-When `path` is omitted, coverlint searches for coverage reports in common default locations based on the `format`:
+When `path` is omitted, coverlint searches for coverage reports in common default locations. If `format` is also omitted, it scans all known default paths across all formats:
 
 | Format      | Searched Paths                                                                                  |
 | ----------- | ----------------------------------------------------------------------------------------------- |
@@ -58,6 +62,39 @@ When `path` is omitted, coverlint searches for coverage reports in common defaul
 | --------- | ---------------------------------------- |
 | `passed`  | `true` or `false`                        |
 | `results` | JSON array of per-entry coverage results |
+
+The `results` output is a JSON array you can parse in subsequent steps:
+
+```json
+[
+  {
+    "name": "gocover",
+    "line": 82.5,
+    "passed": true
+  }
+]
+```
+
+For multi-format runs, each format gets its own entry plus a combined total:
+
+```json
+[
+  { "name": "gocover", "line": 85.0, "passed": true },
+  { "name": "lcov", "line": 78.3, "branch": 65.2, "function": 90.1, "passed": true },
+  { "name": "Total", "line": 81.1, "branch": 65.2, "function": 90.1, "passed": true }
+]
+```
+
+Fields like `branch` and `function` are omitted when the format doesn't report them. Use `fromJSON()` to access these values:
+
+```yaml
+- uses: evansims/coverlint@v1
+  id: coverage
+  with:
+    format: gocover
+
+- run: echo "Line coverage is ${{ fromJSON(steps.coverage.outputs.results)[0].line }}%"
+```
 
 ## Examples
 
@@ -140,13 +177,19 @@ When `path` is omitted, coverlint searches for coverage reports in common defaul
 
 ### Monorepo (Multiple Formats)
 
-Use comma-separated `format` and `path` values to combine coverage from multiple languages in a single step. The job summary shows per-format breakdowns with a combined total.
+List multiple formats and paths to combine coverage from different languages in a single step. The job summary shows per-format breakdowns with a combined total.
 
 ```yaml
 - uses: evansims/coverlint@v1
   with:
-    format: gocover,lcov,cobertura
-    path: "go-service/cover.out, node-service/coverage/lcov.info, python-service/coverage.xml"
+    format: |
+      gocover
+      lcov
+      cobertura
+    path: |
+      go-service/cover.out
+      node-service/coverage/lcov.info
+      python-service/coverage.xml
     threshold-line: 80
 ```
 
@@ -178,6 +221,16 @@ Report coverage metrics in the job summary without enforcing any minimums:
 - uses: evansims/coverlint@v1
   with:
     format: gocover
+```
+
+### Fully Automatic
+
+When both `format` and `path` are omitted, coverlint discovers files from known default locations and auto-detects the format:
+
+```yaml
+- uses: evansims/coverlint@v1
+  with:
+    threshold-line: 80
 ```
 
 ## Contributing

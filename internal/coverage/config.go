@@ -7,10 +7,28 @@ import (
 	"strings"
 )
 
+// formatOrder defines the priority order for format auto-detection.
+// Most distinctive/unambiguous formats first to minimize false matches.
+// This must stay in sync with the parsers map in parser.go.
+var formatOrder = []string{"gocover", "lcov", "jacoco", "cobertura", "clover"}
+
+func init() {
+	// Enforce that formatOrder and parsers stay in sync.
+	if len(formatOrder) != len(parsers) {
+		panic("formatOrder and parsers are out of sync")
+	}
+	for _, f := range formatOrder {
+		if _, ok := parsers[f]; !ok {
+			panic("formatOrder contains unknown format: " + f)
+		}
+	}
+}
+
 // Input holds the parsed and validated action inputs.
 type Input struct {
 	Path        string
 	Formats     []string
+	AutoFormat  bool
 	WorkDir     string
 	FailOnError bool
 	Suggestions bool
@@ -26,24 +44,17 @@ func ParseInputs() (*Input, error) {
 		Suggestions: getInput("SUGGESTIONS", "true") == "true",
 	}
 
-	formatRaw := getInput("FORMAT", "")
-	if strings.TrimSpace(formatRaw) == "" {
-		return nil, fmt.Errorf("input validation: format is required")
-	}
-
-	for _, f := range strings.Split(formatRaw, ",") {
-		f = strings.TrimSpace(f)
-		if f == "" {
-			continue
+	formats := splitList(getInput("FORMAT", ""))
+	if len(formats) == 0 {
+		inp.AutoFormat = true
+		inp.Formats = formatOrder
+	} else {
+		for _, f := range formats {
+			if _, ok := parsers[f]; !ok {
+				return nil, fmt.Errorf("input validation: format %q is not valid (valid: lcov, gocover, cobertura, clover, jacoco)", f)
+			}
+			inp.Formats = append(inp.Formats, f)
 		}
-		if _, ok := parsers[f]; !ok {
-			return nil, fmt.Errorf("input validation: format %q is not valid (valid: lcov, gocover, cobertura, clover, jacoco)", f)
-		}
-		inp.Formats = append(inp.Formats, f)
-	}
-
-	if len(inp.Formats) == 0 {
-		return nil, fmt.Errorf("input validation: format is required")
 	}
 
 	line, err := parseOptionalFloat(os.Getenv("INPUT_THRESHOLD-LINE"))
@@ -84,4 +95,21 @@ func getInput(name, defaultVal string) string {
 		return defaultVal
 	}
 	return val
+}
+
+// splitList splits a string on commas and newlines, trims whitespace,
+// and drops empty entries. Supports both comma-separated and YAML
+// multiline (|) input styles.
+func splitList(s string) []string {
+	// Normalize newlines to commas so a single split handles both
+	s = strings.ReplaceAll(s, "\n", ",")
+	s = strings.ReplaceAll(s, "\r", ",")
+	var out []string
+	for _, item := range strings.Split(s, ",") {
+		item = strings.TrimSpace(item)
+		if item != "" {
+			out = append(out, item)
+		}
+	}
+	return out
 }

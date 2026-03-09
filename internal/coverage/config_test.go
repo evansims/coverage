@@ -57,12 +57,28 @@ func TestParseInputs(t *testing.T) {
 			wantFormats: []string{"gocover", "lcov", "cobertura"},
 		},
 		{
-			name: "missing format",
+			name: "multiple formats newline-separated",
+			env: map[string]string{
+				"INPUT_FORMAT":         "gocover\nlcov\ncobertura",
+				"INPUT_THRESHOLD-LINE": "80",
+			},
+			wantFormats: []string{"gocover", "lcov", "cobertura"},
+		},
+		{
+			name: "mixed newlines and commas",
+			env: map[string]string{
+				"INPUT_FORMAT":         "gocover,lcov\ncobertura",
+				"INPUT_THRESHOLD-LINE": "80",
+			},
+			wantFormats: []string{"gocover", "lcov", "cobertura"},
+		},
+		{
+			name: "format auto-detected when omitted",
 			env: map[string]string{
 				"INPUT_PATH":           "cover.out",
 				"INPUT_THRESHOLD-LINE": "80",
 			},
-			wantErr: "format is required",
+			wantFormats: formatOrder,
 		},
 		{
 			name: "invalid format",
@@ -158,6 +174,41 @@ func TestParseInputs(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestParseInputsAutoFormat(t *testing.T) {
+	for _, key := range []string{
+		"INPUT_PATH", "INPUT_FORMAT",
+		"INPUT_WORKING-DIRECTORY", "INPUT_FAIL-ON-ERROR",
+		"INPUT_THRESHOLD-LINE", "INPUT_THRESHOLD-BRANCH", "INPUT_THRESHOLD-FUNCTION",
+	} {
+		t.Setenv(key, "")
+	}
+
+	t.Setenv("INPUT_PATH", "cover.out")
+	t.Setenv("INPUT_THRESHOLD-LINE", "80")
+
+	inp, err := ParseInputs()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !inp.AutoFormat {
+		t.Error("expected AutoFormat to be true when format is omitted")
+	}
+	if len(inp.Formats) != len(formatOrder) {
+		t.Errorf("expected %d formats, got %d", len(formatOrder), len(inp.Formats))
+	}
+
+	// Verify explicit format sets AutoFormat to false
+	t.Setenv("INPUT_FORMAT", "lcov")
+	inp, err = ParseInputs()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if inp.AutoFormat {
+		t.Error("expected AutoFormat to be false when format is specified")
 	}
 }
 

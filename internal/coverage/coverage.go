@@ -51,8 +51,28 @@ func Run() error {
 	// Parse coverage files grouped by format
 	var perFormat []formatResult
 
-	if strings.TrimSpace(inp.Path) == "" {
-		// Auto-discovery: each format discovers its own files independently
+	if strings.TrimSpace(inp.Path) == "" && inp.AutoFormat {
+		// Both format and path auto-discovered
+		discovered, err := DiscoverAllReports(inp.WorkDir)
+		if err != nil {
+			return err
+		}
+		EmitAnnotation("notice", fmt.Sprintf("auto-discovered %d report(s): %s",
+			len(discovered), strings.Join(discovered, ", ")))
+
+		perFormat, err = parseWithFormats(discovered, inp.Formats, inp.WorkDir)
+		if err != nil {
+			return err
+		}
+
+		var detectedFormats []string
+		for _, fr := range perFormat {
+			detectedFormats = append(detectedFormats, fr.Format)
+		}
+		EmitAnnotation("notice", fmt.Sprintf("auto-detected format(s): %s",
+			strings.Join(detectedFormats, ", ")))
+	} else if strings.TrimSpace(inp.Path) == "" {
+		// Explicit formats, auto-discover paths per format
 		for _, format := range inp.Formats {
 			results, err := discoverAndParse(format, inp.WorkDir)
 			if err != nil {
@@ -66,53 +86,14 @@ func Run() error {
 		if err != nil {
 			return err
 		}
-
-		type namedParser struct {
-			name   string
-			parser parserFunc
-		}
-		var namedParsers []namedParser
-		for _, f := range inp.Formats {
-			p, err := getParser(f)
-			if err != nil {
-				return err
-			}
-			namedParsers = append(namedParsers, namedParser{name: f, parser: p})
-		}
-
-		// Group results by which parser succeeded
-		formatResults := map[string][]*CoverageResult{}
-		for _, p := range resolved {
-			fullPath := filepath.Join(inp.WorkDir, p)
-			data, err := readCoverageFile(fullPath)
-			if err != nil {
-				return err
-			}
-
-			matched := false
-			for _, np := range namedParsers {
-				result, err := np.parser(data)
-				if err == nil {
-					formatResults[np.name] = append(formatResults[np.name], result)
-					matched = true
-					break
-				}
-			}
-			if !matched {
-				return fmt.Errorf("parsing %q: no configured parser succeeded", p)
-			}
-		}
-
-		// Preserve format order from input
-		for _, f := range inp.Formats {
-			if results, ok := formatResults[f]; ok {
-				perFormat = append(perFormat, formatResult{Format: f, Results: results})
-			}
+		perFormat, err = parseWithFormats(resolved, inp.Formats, inp.WorkDir)
+		if err != nil {
+			return err
 		}
 	}
 
 	// Build per-format merged results and entry results
-	multiFormat := len(inp.Formats) > 1
+	multiFormat := len(perFormat) > 1
 	var allParsed []*CoverageResult
 	var entryResults []EntryResult
 
@@ -139,7 +120,7 @@ func Run() error {
 	if multiFormat {
 		totalLabel = "Total"
 	} else {
-		totalLabel = inp.Formats[0]
+		totalLabel = perFormat[0].Format
 	}
 	totalEntry := buildEntryResult(totalLabel, combined)
 	totalEntry.Passed = cr.Passed
@@ -155,9 +136,15 @@ func Run() error {
 		resultsForOutput = []EntryResult{totalEntry}
 	}
 
+	// Collect actual format names for messages
+	var formatNames []string
+	for _, fr := range perFormat {
+		formatNames = append(formatNames, fr.Format)
+	}
+
 	for _, s := range cr.Skipped {
 		EmitAnnotation("notice", fmt.Sprintf("%s: %s threshold configured but not reported by %s format — skipped",
-			s.Entry, s.Metric, strings.Join(inp.Formats, ", ")))
+			s.Entry, s.Metric, strings.Join(formatNames, ", ")))
 	}
 
 	// Emit annotations
@@ -214,6 +201,59 @@ func Run() error {
 	}
 
 	return nil
+}
+
+// parseWithFormats tries each parser in order against each file and groups
+// results by which parser succeeded. Used when paths are known but format
+// may need to be auto-detected (or when multiple formats are configured
+// with explicit paths).
+func parseWithFormats(paths []string, formats []string, workDir string) ([]formatResult, error) {
+	type namedParser struct {
+		name   string
+		parser parserFunc
+	}
+	var nps []namedParser
+	for _, f := range formats {
+		p, err := getParser(f)
+		if err != nil {
+			return nil, err
+		}
+		nps = append(nps, namedParser{name: f, parser: p})
+	}
+
+	results := map[string][]*CoverageResult{}
+	for _, p := range paths {
+		fullPath := filepath.Join(workDir, p)
+		data, err := readCoverageFile(fullPath)
+		if err != nil {
+			return nil, err
+		}
+
+		matched := false
+		for _, np := range nps {
+			result, err := np.parser(data)
+			if err == nil {
+				results[np.name] = append(results[np.name], result)
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return nil, fmt.Errorf("parsing %q: no configured parser succeeded", p)
+		}
+	}
+
+	// Preserve format order from input
+	var out []formatResult
+	for _, f := range formats {
+		if r, ok := results[f]; ok {
+			out = append(out, formatResult{Format: f, Results: r})
+		}
+	}
+	if len(out) == 0 {
+		return nil, fmt.Errorf("no coverage reports could be parsed")
+	}
+	return out, nil
 }
 
 // buildEntryResult creates an EntryResult from a CoverageResult.

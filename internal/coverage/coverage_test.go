@@ -87,6 +87,50 @@ func TestRunThresholdFailure(t *testing.T) {
 	}
 }
 
+func TestRunAutoFormat(t *testing.T) {
+	outputFile := filepath.Join(t.TempDir(), "github_output")
+	summaryFile := filepath.Join(t.TempDir(), "github_summary")
+	if err := os.WriteFile(outputFile, nil, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(summaryFile, nil, 0644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GITHUB_OUTPUT", outputFile)
+	t.Setenv("GITHUB_STEP_SUMMARY", summaryFile)
+
+	// Use gocover testdata — place a cover.out in a temp dir so auto-discovery finds it
+	dir := t.TempDir()
+	src := filepath.Join("..", "..", "testdata", "gocover", "basic.out")
+	data, err := os.ReadFile(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "cover.out"), data, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// No format, no path — both auto-discovered
+	setInputEnv(t, map[string]string{
+		"INPUT_WORKING-DIRECTORY": dir,
+		"INPUT_THRESHOLD-LINE":    "50",
+	})
+
+	if err := Run(); err != nil {
+		t.Fatalf("Run() with auto-format returned error: %v", err)
+	}
+
+	output, _ := os.ReadFile(outputFile)
+	if len(output) == 0 {
+		t.Error("expected outputs to be written")
+	}
+
+	summary, _ := os.ReadFile(summaryFile)
+	if len(summary) == 0 {
+		t.Error("expected summary to be written")
+	}
+}
+
 func TestRunFailOnErrorFalse(t *testing.T) {
 	outputFile := filepath.Join(t.TempDir(), "github_output")
 	summaryFile := filepath.Join(t.TempDir(), "github_summary")
