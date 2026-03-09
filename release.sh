@@ -96,7 +96,29 @@ echo "Updating ${major} tag..."
 git tag -fa "$major" -m "Update ${major} tag to ${tag}"
 git push origin "$major" --force
 
+commit_sha=$(git rev-parse "$tag")
+
+# Append SHA pinning guidance to the GitHub Release body
+repo=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+existing_body=$(gh release view "$tag" --json body -q .body 2>/dev/null || true)
+pin_section="## SHA Pinning
+
+For security hardening, pin to the exact commit SHA for this release:
+
+\`\`\`yaml
+- uses: evansims/coverlint@${commit_sha} # ${tag}
+\`\`\`
+
+See [GitHub's guide on security hardening](https://docs.github.com/en/actions/security-for-github-actions/security-guides/security-hardening-for-github-actions#using-third-party-actions) for details."
+
+gh release edit "$tag" --notes "${existing_body}
+
+${pin_section}"
+
 echo ""
 echo "Done! ${tag} is live."
-echo "  Release:     https://github.com/$(gh repo view --json nameWithOwner -q .nameWithOwner)/releases/tag/${tag}"
+echo "  Release:     https://github.com/${repo}/releases/tag/${tag}"
 echo "  Marketplace: https://github.com/marketplace/actions/coverlint"
+echo ""
+echo "Pin to this exact release in workflows:"
+echo "  uses: evansims/coverlint@${commit_sha} # ${tag}"
