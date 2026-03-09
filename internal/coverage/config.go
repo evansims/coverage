@@ -42,7 +42,7 @@ type Input struct {
 	Threshold   Threshold
 	Baseline    string
 	MinDelta    *float64
-	SARIF       bool
+	SARIFMaxResults int // 0 = disabled, >0 = max SARIF results to emit
 }
 
 // ParseInputs reads action inputs from INPUT_* environment variables and validates them.
@@ -126,8 +126,20 @@ func ParseInputs() (*Input, error) {
 		Weights:     weights,
 	}
 
-	// Parse SARIF toggle
-	inp.SARIF = getInput("SARIF", "false") == "true"
+	// Parse SARIF: "true" uses default max, a number sets a custom max, anything else disables
+	sarifStr := strings.TrimSpace(getInput("SARIF", "false"))
+	switch {
+	case sarifStr == "true":
+		inp.SARIFMaxResults = defaultSARIFMaxResults
+	case sarifStr == "" || sarifStr == "false":
+		inp.SARIFMaxResults = 0
+	default:
+		sarifMax, err := strconv.Atoi(sarifStr)
+		if err != nil || sarifMax < 1 {
+			return nil, fmt.Errorf("input validation: sarif: %q must be true, false, or a positive number", sarifStr)
+		}
+		inp.SARIFMaxResults = sarifMax
+	}
 
 	// Parse baseline and min-delta inputs
 	inp.Baseline = getInput("BASELINE", "")

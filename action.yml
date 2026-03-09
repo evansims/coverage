@@ -53,7 +53,7 @@ inputs:
     required: false
     default: 'true'
   sarif:
-    description: 'Generate SARIF output for GitHub Code Scanning (default: false)'
+    description: 'Generate SARIF output for GitHub Code Scanning: true (default max 500 results), false, or a number (default: false)'
     required: false
     default: 'false'
   baseline:

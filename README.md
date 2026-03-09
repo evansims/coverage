@@ -1,6 +1,6 @@
 # Coverlint
 
-![Coverage](https://raw.githubusercontent.com/evansims/coverlint/badges/coverage.svg)
+![Coverage](https://raw.githubusercontent.com/evansims/coverlint/coverlint/coverage.svg)
 
 Coverage checks for GitHub Actions — no external services, no secrets, no accounts. Add one step to your workflow, set a threshold, and get pass/fail results with annotations and a job summary.
 
@@ -237,7 +237,7 @@ jobs:
         env:
           REPO: ${{ github.repository }}
         run: |
-          if curl -fsL "https://raw.githubusercontent.com/${REPO}/baselines/coverage-baseline.json" -o /tmp/baseline.json 2>/dev/null; then
+          if curl -fsL "https://raw.githubusercontent.com/${REPO}/coverlint/coverage-baseline.json" -o /tmp/baseline.json 2>/dev/null; then
             delimiter=$(openssl rand -hex 16)
             echo "baseline<<${delimiter}" >> "$GITHUB_OUTPUT"
             cat /tmp/baseline.json >> "$GITHUB_OUTPUT"
@@ -257,7 +257,7 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     concurrency:
-      group: update-baselines
+      group: coverlint-update
       cancel-in-progress: false
     permissions:
       contents: write
@@ -274,11 +274,11 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          if git ls-remote --exit-code origin baselines &>/dev/null; then
-            git fetch origin baselines
-            git checkout baselines
+          if git ls-remote --exit-code origin coverlint &>/dev/null; then
+            git fetch origin coverlint
+            git checkout coverlint
           else
-            git checkout --orphan baselines
+            git checkout --orphan coverlint
             git rm -rf . 2>/dev/null || true
           fi
 
@@ -286,7 +286,7 @@ jobs:
           git add coverage-baseline.json
           git diff --cached --quiet && exit 0
           git commit -m "Update coverage baseline"
-          git push origin baselines
+          git push origin coverlint
 ```
 
 ## Code Scanning Integration
@@ -321,7 +321,7 @@ jobs:
           sarif_file: coverage.sarif
 ```
 
-For very large codebases, the SARIF output may exceed GitHub's 1 MB action output limit. If you hit this, consider filtering results or splitting coverage by area.
+Results are capped at 500 by default. For large codebases, lower the cap to stay within GitHub's 1 MB action output limit — pass a number instead of `true` (e.g. `sarif: 200`).
 
 ## PR Comments
 
@@ -401,7 +401,7 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     concurrency:
-      group: update-badges
+      group: coverlint-update
       cancel-in-progress: false
     permissions:
       contents: write
@@ -418,11 +418,11 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          if git ls-remote --exit-code origin badges &>/dev/null; then
-            git fetch origin badges
-            git checkout badges
+          if git ls-remote --exit-code origin coverlint &>/dev/null; then
+            git fetch origin coverlint
+            git checkout coverlint
           else
-            git checkout --orphan badges
+            git checkout --orphan coverlint
             git rm -rf . 2>/dev/null || true
           fi
 
@@ -430,7 +430,7 @@ jobs:
           git add coverage.svg
           git diff --cached --quiet && exit 0
           git commit -m "Update coverage badge"
-          git push origin badges
+          git push origin coverlint
 ```
 
 </details>
@@ -438,13 +438,13 @@ jobs:
 Add to your README:
 
 ```markdown
-![Coverage](https://raw.githubusercontent.com/OWNER/REPO/badges/coverage.svg)
+![Coverage](https://raw.githubusercontent.com/OWNER/REPO/coverlint/coverage.svg)
 ```
 
 Prefer [shields.io](https://shields.io) styling? Use `badge-json` instead:
 
 ```markdown
-![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/OWNER/REPO/badges/coverage.json)
+![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/OWNER/REPO/coverlint/coverage.json)
 ```
 
 ## Inputs
@@ -466,7 +466,7 @@ Prefer [shields.io](https://shields.io) styling? Use `badge-json` instead:
 | `annotations`       | Annotation output: `true` (default), `false`, or a max count                                           |
 | `baseline`          | JSON string of previous baseline data for delta comparison                                             |
 | `min-delta`         | Minimum allowed score change (e.g. `0` = no regression, `-2` = max 2pt drop). Ignored without `baseline` |
-| `sarif`             | Generate SARIF output for GitHub Code Scanning (default: `false`)                                      |
+| `sarif`             | SARIF output: `true` (default max 500 results), `false`, or a number (default: `false`)                |
 
 ## Outputs
 

@@ -7,8 +7,8 @@ import (
 	"strings"
 )
 
-// maxSARIFResults caps the number of results in a SARIF document to keep output manageable.
-const maxSARIFResults = 1000
+// defaultSARIFMaxResults is the default cap when SARIF is enabled with "true".
+const defaultSARIFMaxResults = 500
 
 // SARIFDocument represents a SARIF 2.1.0 log file.
 type SARIFDocument struct {
@@ -84,8 +84,8 @@ type SARIFRegion struct {
 // GenerateSARIF creates a SARIF 2.1.0 document from coverage data.
 // For line-based formats (fileDetails != nil), it emits one result per uncovered line.
 // For block-based formats (blockDetails != nil), it emits one result per uncovered block.
-// Results are capped at maxSARIFResults and sorted for deterministic output.
-func GenerateSARIF(fileDetails map[string]*FileLineDetail, blockDetails map[string]map[string]*BlockEntry) SARIFDocument {
+// Results are capped at maxResults and sorted for deterministic output.
+func GenerateSARIF(fileDetails map[string]*FileLineDetail, blockDetails map[string]map[string]*BlockEntry, maxResults int) SARIFDocument {
 	rules := []SARIFRule{
 		{
 			ID:               "coverage/uncovered-line",
@@ -108,8 +108,8 @@ func GenerateSARIF(fileDetails map[string]*FileLineDetail, blockDetails map[stri
 	}
 
 	// Cap results
-	if len(results) > maxSARIFResults {
-		results = results[:maxSARIFResults]
+	if maxResults > 0 && len(results) > maxResults {
+		results = results[:maxResults]
 	}
 
 	return SARIFDocument{

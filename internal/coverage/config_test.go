@@ -861,7 +861,7 @@ func TestParseInputsSARIF(t *testing.T) {
 		}
 	}
 
-	t.Run("sarif enabled", func(t *testing.T) {
+	t.Run("sarif enabled with true", func(t *testing.T) {
 		clear(t)
 		t.Setenv("INPUT_FORMAT", "gocover")
 		t.Setenv("INPUT_SARIF", "true")
@@ -870,8 +870,22 @@ func TestParseInputsSARIF(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		if !inp.SARIF {
-			t.Error("SARIF should be true when set to 'true'")
+		if inp.SARIFMaxResults != defaultSARIFMaxResults {
+			t.Errorf("SARIFMaxResults = %d, want %d", inp.SARIFMaxResults, defaultSARIFMaxResults)
+		}
+	})
+
+	t.Run("sarif with custom max", func(t *testing.T) {
+		clear(t)
+		t.Setenv("INPUT_FORMAT", "gocover")
+		t.Setenv("INPUT_SARIF", "200")
+
+		inp, err := ParseInputs()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if inp.SARIFMaxResults != 200 {
+			t.Errorf("SARIFMaxResults = %d, want 200", inp.SARIFMaxResults)
 		}
 	})
 
@@ -884,8 +898,8 @@ func TestParseInputsSARIF(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		if inp.SARIF {
-			t.Error("SARIF should be false when set to 'false'")
+		if inp.SARIFMaxResults != 0 {
+			t.Errorf("SARIFMaxResults = %d, want 0", inp.SARIFMaxResults)
 		}
 	})
 
@@ -897,8 +911,41 @@ func TestParseInputsSARIF(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		if inp.SARIF {
-			t.Error("SARIF should default to false")
+		if inp.SARIFMaxResults != 0 {
+			t.Errorf("SARIFMaxResults = %d, want 0", inp.SARIFMaxResults)
+		}
+	})
+
+	t.Run("sarif rejects invalid value", func(t *testing.T) {
+		clear(t)
+		t.Setenv("INPUT_FORMAT", "gocover")
+		t.Setenv("INPUT_SARIF", "banana")
+
+		_, err := ParseInputs()
+		if err == nil {
+			t.Error("expected error for invalid sarif value")
+		}
+	})
+
+	t.Run("sarif rejects zero", func(t *testing.T) {
+		clear(t)
+		t.Setenv("INPUT_FORMAT", "gocover")
+		t.Setenv("INPUT_SARIF", "0")
+
+		_, err := ParseInputs()
+		if err == nil {
+			t.Error("expected error for sarif=0")
+		}
+	})
+
+	t.Run("sarif rejects negative", func(t *testing.T) {
+		clear(t)
+		t.Setenv("INPUT_FORMAT", "gocover")
+		t.Setenv("INPUT_SARIF", "-5")
+
+		_, err := ParseInputs()
+		if err == nil {
+			t.Error("expected error for negative sarif value")
 		}
 	})
 }

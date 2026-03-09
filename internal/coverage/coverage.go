@@ -221,8 +221,8 @@ func Run() error {
 
 	// Generate SARIF report if configured
 	var sarifJSON string
-	if inp.SARIF {
-		sarifDoc := GenerateSARIF(combined.FileDetails, combined.BlockDetails)
+	if inp.SARIFMaxResults > 0 {
+		sarifDoc := GenerateSARIF(combined.FileDetails, combined.BlockDetails, inp.SARIFMaxResults)
 		sarifBytes, merr := json.MarshalIndent(sarifDoc, "", "  ")
 		if merr != nil {
 			annotator.Emit("warning", fmt.Sprintf("failed to marshal SARIF: %v", merr))

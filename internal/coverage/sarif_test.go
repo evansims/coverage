@@ -23,7 +23,7 @@ func TestGenerateSARIF_WithLineDetails(t *testing.T) {
 		},
 	}
 
-	doc := GenerateSARIF(fileDetails, nil)
+	doc := GenerateSARIF(fileDetails, nil, defaultSARIFMaxResults)
 
 	if doc.Version != "2.1.0" {
 		t.Errorf("version = %q, want %q", doc.Version, "2.1.0")
@@ -77,7 +77,7 @@ func TestGenerateSARIF_WithBlockDetails(t *testing.T) {
 		},
 	}
 
-	doc := GenerateSARIF(nil, blockDetails)
+	doc := GenerateSARIF(nil, blockDetails, defaultSARIFMaxResults)
 
 	if len(doc.Runs) != 1 {
 		t.Fatalf("expected 1 run, got %d", len(doc.Runs))
@@ -107,7 +107,7 @@ func TestGenerateSARIF_WithBlockDetails(t *testing.T) {
 }
 
 func TestGenerateSARIF_Empty(t *testing.T) {
-	doc := GenerateSARIF(nil, nil)
+	doc := GenerateSARIF(nil, nil, defaultSARIFMaxResults)
 
 	if len(doc.Runs) != 1 {
 		t.Fatalf("expected 1 run, got %d", len(doc.Runs))
@@ -118,19 +118,20 @@ func TestGenerateSARIF_Empty(t *testing.T) {
 }
 
 func TestGenerateSARIF_ResultsCapped(t *testing.T) {
-	// Create file details with more than maxSARIFResults uncovered lines
+	// Create file details with more uncovered lines than the cap
+	maxResults := 100
 	lines := make(map[int]int64)
-	for i := 1; i <= maxSARIFResults+500; i++ {
+	for i := 1; i <= maxResults+50; i++ {
 		lines[i] = 0 // all uncovered
 	}
 	fileDetails := map[string]*FileLineDetail{
 		"big.go": {Lines: lines},
 	}
 
-	doc := GenerateSARIF(fileDetails, nil)
+	doc := GenerateSARIF(fileDetails, nil, maxResults)
 
-	if len(doc.Runs[0].Results) != maxSARIFResults {
-		t.Errorf("results = %d, want %d (capped)", len(doc.Runs[0].Results), maxSARIFResults)
+	if len(doc.Runs[0].Results) != maxResults {
+		t.Errorf("results = %d, want %d (capped)", len(doc.Runs[0].Results), maxResults)
 	}
 }
 
@@ -140,7 +141,7 @@ func TestGenerateSARIF_MultipleFiles(t *testing.T) {
 		"b.go": {Lines: map[int]int64{1: 1, 2: 0}},
 	}
 
-	doc := GenerateSARIF(fileDetails, nil)
+	doc := GenerateSARIF(fileDetails, nil, defaultSARIFMaxResults)
 
 	// Should have 2 results (one from a.go line 1, one from b.go line 2)
 	if len(doc.Runs[0].Results) != 2 {
@@ -191,7 +192,7 @@ func TestGenerateSARIF_ResultMessage(t *testing.T) {
 		"main.go": {Lines: map[int]int64{10: 0}},
 	}
 
-	doc := GenerateSARIF(fileDetails, nil)
+	doc := GenerateSARIF(fileDetails, nil, defaultSARIFMaxResults)
 
 	if len(doc.Runs[0].Results) != 1 {
 		t.Fatalf("expected 1 result, got %d", len(doc.Runs[0].Results))
