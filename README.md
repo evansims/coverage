@@ -4,7 +4,7 @@
 
 Coverage checks for GitHub Actions — no external services, no secrets, no accounts. Add one step to your workflow, set a threshold, and get pass/fail results with annotations and a job summary.
 
-Coverlint parses coverage reports in [five formats](#supported-formats), enforces configurable thresholds, and runs entirely within your GitHub Actions runner. Supports Linux, macOS, and Windows.
+Coverlint parses coverage reports in [all major formats](#supported-formats), enforces configurable thresholds, and runs entirely within your GitHub Actions runner. Supports Linux, macOS, and Windows.
 
 ## Supported Formats
 
