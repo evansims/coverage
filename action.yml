@@ -15,14 +15,17 @@ inputs:
     description: 'Coverage format(s): lcov, gocover, cobertura, clover, jacoco. One per line or comma-separated. Auto-detected if omitted.'
     required: false
     default: ''
-  threshold-line:
-    description: 'Minimum line coverage percentage (0-100)'
+  min-coverage:
+    description: 'Minimum weighted coverage score (0-100). Computed from line/branch/function using configurable weights.'
     required: false
-  threshold-branch:
-    description: 'Minimum branch coverage percentage (0-100)'
+  min-line:
+    description: 'Minimum line coverage percentage (0-100). Hard floor checked independently of weighted score.'
     required: false
-  threshold-function:
-    description: 'Minimum function coverage percentage (0-100)'
+  min-branch:
+    description: 'Minimum branch coverage percentage (0-100). Hard floor checked independently of weighted score.'
+    required: false
+  min-function:
+    description: 'Minimum function coverage percentage (0-100). Hard floor checked independently of weighted score.'
     required: false
   working-directory:
     description: 'Working directory for resolving relative paths'
@@ -32,6 +35,15 @@ inputs:
     description: 'Whether to fail the action when thresholds are not met'
     required: false
     default: 'true'
+  weight-line:
+    description: 'Weight for line coverage in the score calculation (default: 50). Relative to other weights.'
+    required: false
+  weight-branch:
+    description: 'Weight for branch coverage in the score calculation (default: 30). Relative to other weights.'
+    required: false
+  weight-function:
+    description: 'Weight for function coverage in the score calculation (default: 20). Relative to other weights.'
+    required: false
   suggestions:
     description: 'Show top opportunities for coverage improvement in job summary'
     required: false
@@ -45,10 +57,10 @@ outputs:
     description: 'Whether all thresholds were met (true or false)'
     value: ${{ steps.run.outputs.passed }}
   badge-svg:
-    description: 'SVG badge showing line coverage percentage'
+    description: 'SVG badge showing weighted coverage score'
     value: ${{ steps.run.outputs.badge-svg }}
   badge-json:
-    description: 'Shields.io endpoint JSON for line coverage badge'
+    description: 'Shields.io endpoint JSON for weighted coverage score badge'
     value: ${{ steps.run.outputs.badge-json }}
 
 runs:
@@ -111,10 +123,14 @@ runs:
       env:
         INPUT_PATH: ${{ inputs.path }}
         INPUT_FORMAT: ${{ inputs.format }}
-        INPUT_THRESHOLD-LINE: ${{ inputs.threshold-line }}
-        INPUT_THRESHOLD-BRANCH: ${{ inputs.threshold-branch }}
-        INPUT_THRESHOLD-FUNCTION: ${{ inputs.threshold-function }}
+        INPUT_MIN-COVERAGE: ${{ inputs.min-coverage }}
+        INPUT_MIN-LINE: ${{ inputs.min-line }}
+        INPUT_MIN-BRANCH: ${{ inputs.min-branch }}
+        INPUT_MIN-FUNCTION: ${{ inputs.min-function }}
         INPUT_WORKING-DIRECTORY: ${{ inputs.working-directory }}
         INPUT_FAIL-ON-ERROR: ${{ inputs.fail-on-error }}
+        INPUT_WEIGHT-LINE: ${{ inputs.weight-line }}
+        INPUT_WEIGHT-BRANCH: ${{ inputs.weight-branch }}
+        INPUT_WEIGHT-FUNCTION: ${{ inputs.weight-function }}
         INPUT_SUGGESTIONS: ${{ inputs.suggestions }}
       run: coverlint

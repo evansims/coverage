@@ -89,3 +89,93 @@ func TestCheckThresholds(t *testing.T) {
 		})
 	}
 }
+
+func TestCheckThresholdsWeightedScore(t *testing.T) {
+	tests := []struct {
+		name           string
+		result         CoverageResult
+		threshold      Threshold
+		wantPassed     bool
+		wantViolations int
+	}{
+		{
+			name: "score passes min-coverage",
+			result: CoverageResult{
+				Line:   &Metric{Hit: 90, Total: 100},
+				Branch: &Metric{Hit: 80, Total: 100},
+			},
+			threshold: Threshold{
+				MinCoverage: floatPtr(80),
+				Weights:     DefaultWeights(),
+			},
+			wantPassed:     true,
+			wantViolations: 0,
+		},
+		{
+			name: "score fails min-coverage",
+			result: CoverageResult{
+				Line:   &Metric{Hit: 60, Total: 100},
+				Branch: &Metric{Hit: 40, Total: 100},
+			},
+			threshold: Threshold{
+				MinCoverage: floatPtr(80),
+				Weights:     DefaultWeights(),
+			},
+			wantPassed:     false,
+			wantViolations: 1,
+		},
+		{
+			name: "score passes but individual metric fails",
+			result: CoverageResult{
+				Line:     &Metric{Hit: 95, Total: 100},
+				Branch:   &Metric{Hit: 40, Total: 100}, // below branch floor
+				Function: &Metric{Hit: 95, Total: 100},
+			},
+			threshold: Threshold{
+				MinCoverage: floatPtr(70),
+				Branch:      floatPtr(60), // hard floor
+				Weights:     DefaultWeights(),
+			},
+			wantPassed:     false,
+			wantViolations: 1, // branch floor violation only
+		},
+		{
+			name: "both score and individual fail",
+			result: CoverageResult{
+				Line:   &Metric{Hit: 50, Total: 100},
+				Branch: &Metric{Hit: 30, Total: 100},
+			},
+			threshold: Threshold{
+				MinCoverage: floatPtr(80),
+				Line:        floatPtr(70),
+				Weights:     DefaultWeights(),
+			},
+			wantPassed:     false,
+			wantViolations: 2, // line floor + score
+		},
+		{
+			name: "no min-coverage set only checks individual",
+			result: CoverageResult{
+				Line: &Metric{Hit: 90, Total: 100},
+			},
+			threshold: Threshold{
+				Line:    floatPtr(80),
+				Weights: DefaultWeights(),
+			},
+			wantPassed:     true,
+			wantViolations: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cr := CheckThresholds(&tt.result, &tt.threshold)
+			if cr.Passed != tt.wantPassed {
+				t.Errorf("passed = %v, want %v", cr.Passed, tt.wantPassed)
+			}
+			if len(cr.Violations) != tt.wantViolations {
+				t.Errorf("got %d violations, want %d: %+v", len(cr.Violations), tt.wantViolations, cr.Violations)
+			}
+		})
+	}
+}

@@ -40,7 +40,7 @@ jobs:
         env:
           INPUT_PATH: cover.out
           INPUT_FORMAT: gocover
-          INPUT_THRESHOLD-LINE: "100"
+          INPUT_MIN-LINE: "100"
           INPUT_WORKING-DIRECTORY: testdata/projects/go
           INPUT_FAIL-ON-ERROR: "true"
         run: ./coverlint
@@ -70,8 +70,8 @@ jobs:
         env:
           INPUT_PATH: coverage/lcov.info
           INPUT_FORMAT: lcov
-          INPUT_THRESHOLD-LINE: "100"
-          INPUT_THRESHOLD-FUNCTION: "100"
+          INPUT_MIN-LINE: "100"
+          INPUT_MIN-FUNCTION: "100"
           INPUT_WORKING-DIRECTORY: testdata/projects/node
           INPUT_FAIL-ON-ERROR: "true"
         run: ./coverlint
@@ -100,8 +100,8 @@ jobs:
         env:
           INPUT_PATH: coverage.xml
           INPUT_FORMAT: cobertura
-          INPUT_THRESHOLD-LINE: "100"
-          INPUT_THRESHOLD-BRANCH: "100"
+          INPUT_MIN-LINE: "100"
+          INPUT_MIN-BRANCH: "100"
           INPUT_WORKING-DIRECTORY: testdata/projects/python
           INPUT_FAIL-ON-ERROR: "true"
         run: ./coverlint
@@ -134,9 +134,9 @@ jobs:
         env:
           INPUT_PATH: coverage.xml
           INPUT_FORMAT: clover
-          INPUT_THRESHOLD-LINE: "100"
-          INPUT_THRESHOLD-BRANCH: "100"
-          INPUT_THRESHOLD-FUNCTION: "100"
+          INPUT_MIN-LINE: "100"
+          INPUT_MIN-BRANCH: "100"
+          INPUT_MIN-FUNCTION: "100"
           INPUT_WORKING-DIRECTORY: testdata/projects/php
           INPUT_FAIL-ON-ERROR: "true"
         run: ./coverlint
@@ -164,9 +164,9 @@ jobs:
         env:
           INPUT_PATH: build/reports/jacoco/test/jacocoTestReport.xml
           INPUT_FORMAT: jacoco
-          INPUT_THRESHOLD-LINE: "100"
-          INPUT_THRESHOLD-BRANCH: "100"
-          INPUT_THRESHOLD-FUNCTION: "100"
+          INPUT_MIN-LINE: "100"
+          INPUT_MIN-BRANCH: "100"
+          INPUT_MIN-FUNCTION: "100"
           INPUT_WORKING-DIRECTORY: testdata/projects/java
           INPUT_FAIL-ON-ERROR: "true"
         run: ./coverlint
@@ -213,7 +213,7 @@ jobs:
         env:
           INPUT_FORMAT: gocover,lcov,cobertura
           INPUT_PATH: "go-service/cover.out, node-service/coverage/lcov.info, python-service/coverage.xml"
-          INPUT_THRESHOLD-LINE: "80"
+          INPUT_MIN-LINE: "80"
           INPUT_WORKING-DIRECTORY: testdata/projects/monorepo
           INPUT_FAIL-ON-ERROR: "true"
         run: ./coverlint
@@ -240,8 +240,8 @@ jobs:
         env:
           INPUT_PATH: lcov.info
           INPUT_FORMAT: lcov
-          INPUT_THRESHOLD-LINE: "100"
-          INPUT_THRESHOLD-FUNCTION: "100"
+          INPUT_MIN-LINE: "100"
+          INPUT_MIN-FUNCTION: "100"
           INPUT_WORKING-DIRECTORY: testdata/projects/rust
           INPUT_FAIL-ON-ERROR: "true"
         run: ./coverlint

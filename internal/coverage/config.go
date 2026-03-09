@@ -57,20 +57,49 @@ func ParseInputs() (*Input, error) {
 		}
 	}
 
-	line, err := parseOptionalFloat(os.Getenv("INPUT_THRESHOLD-LINE"))
+	// Parse min-coverage (weighted score threshold) and per-metric overrides
+	minCoverage, err := parseOptionalFloat(os.Getenv("INPUT_MIN-COVERAGE"))
 	if err != nil {
-		return nil, fmt.Errorf("input validation: threshold-line: %w", err)
+		return nil, fmt.Errorf("input validation: min-coverage: %w", err)
 	}
-	branch, err := parseOptionalFloat(os.Getenv("INPUT_THRESHOLD-BRANCH"))
+	line, err := parseOptionalFloat(os.Getenv("INPUT_MIN-LINE"))
 	if err != nil {
-		return nil, fmt.Errorf("input validation: threshold-branch: %w", err)
+		return nil, fmt.Errorf("input validation: min-line: %w", err)
 	}
-	function, err := parseOptionalFloat(os.Getenv("INPUT_THRESHOLD-FUNCTION"))
+	branch, err := parseOptionalFloat(os.Getenv("INPUT_MIN-BRANCH"))
 	if err != nil {
-		return nil, fmt.Errorf("input validation: threshold-function: %w", err)
+		return nil, fmt.Errorf("input validation: min-branch: %w", err)
+	}
+	function, err := parseOptionalFloat(os.Getenv("INPUT_MIN-FUNCTION"))
+	if err != nil {
+		return nil, fmt.Errorf("input validation: min-function: %w", err)
 	}
 
-	inp.Threshold = Threshold{Line: line, Branch: branch, Function: function}
+	// Parse weights (non-negative, defaults applied if not set)
+	weights := DefaultWeights()
+	if wl, err := parseOptionalFloat(os.Getenv("INPUT_WEIGHT-LINE")); err != nil {
+		return nil, fmt.Errorf("input validation: weight-line: %w", err)
+	} else if wl != nil {
+		weights.Line = *wl
+	}
+	if wb, err := parseOptionalFloat(os.Getenv("INPUT_WEIGHT-BRANCH")); err != nil {
+		return nil, fmt.Errorf("input validation: weight-branch: %w", err)
+	} else if wb != nil {
+		weights.Branch = *wb
+	}
+	if wf, err := parseOptionalFloat(os.Getenv("INPUT_WEIGHT-FUNCTION")); err != nil {
+		return nil, fmt.Errorf("input validation: weight-function: %w", err)
+	} else if wf != nil {
+		weights.Function = *wf
+	}
+
+	inp.Threshold = Threshold{
+		Line:        line,
+		Branch:      branch,
+		Function:    function,
+		MinCoverage: minCoverage,
+		Weights:     weights,
+	}
 	return inp, nil
 }
 

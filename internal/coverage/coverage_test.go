@@ -12,7 +12,8 @@ func setInputEnv(t *testing.T, env map[string]string) {
 	for _, key := range []string{
 		"INPUT_PATH", "INPUT_FORMAT",
 		"INPUT_WORKING-DIRECTORY", "INPUT_FAIL-ON-ERROR",
-		"INPUT_THRESHOLD-LINE", "INPUT_THRESHOLD-BRANCH", "INPUT_THRESHOLD-FUNCTION",
+		"INPUT_MIN-COVERAGE", "INPUT_MIN-LINE", "INPUT_MIN-BRANCH", "INPUT_MIN-FUNCTION",
+		"INPUT_WEIGHT-LINE", "INPUT_WEIGHT-BRANCH", "INPUT_WEIGHT-FUNCTION",
 		"INPUT_SUGGESTIONS",
 	} {
 		t.Setenv(key, "")
@@ -41,7 +42,7 @@ func TestRunIntegration(t *testing.T) {
 		"INPUT_FORMAT":            "lcov",
 		"INPUT_WORKING-DIRECTORY": fixtureDir,
 		"INPUT_FAIL-ON-ERROR":     "true",
-		"INPUT_THRESHOLD-LINE":    "50",
+		"INPUT_MIN-LINE":    "50",
 	})
 
 	if err := Run(); err != nil {
@@ -78,7 +79,7 @@ func TestRunThresholdFailure(t *testing.T) {
 		"INPUT_FORMAT":            "lcov",
 		"INPUT_WORKING-DIRECTORY": fixtureDir,
 		"INPUT_FAIL-ON-ERROR":     "true",
-		"INPUT_THRESHOLD-LINE":    "80",
+		"INPUT_MIN-LINE":    "80",
 	})
 
 	err := Run()
@@ -113,7 +114,7 @@ func TestRunAutoFormat(t *testing.T) {
 	// No format, no path — both auto-discovered
 	setInputEnv(t, map[string]string{
 		"INPUT_WORKING-DIRECTORY": dir,
-		"INPUT_THRESHOLD-LINE":    "50",
+		"INPUT_MIN-LINE":    "50",
 	})
 
 	if err := Run(); err != nil {
@@ -150,7 +151,7 @@ func TestRunFailOnErrorFalse(t *testing.T) {
 		"INPUT_FORMAT":            "lcov",
 		"INPUT_WORKING-DIRECTORY": fixtureDir,
 		"INPUT_FAIL-ON-ERROR":     "false",
-		"INPUT_THRESHOLD-LINE":    "80",
+		"INPUT_MIN-LINE":    "80",
 	})
 
 	// Should NOT error even though threshold fails, because fail-on-error is false

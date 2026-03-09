@@ -20,29 +20,35 @@ A self-contained GitHub Action that parses coverage reports, enforces thresholds
 - uses: evansims/coverlint@v1
   with:
     format: gocover # recommended; auto-detected if omitted
-    threshold-line: 80
+    min-coverage: 80
 ```
 
-For [security hardening](https://docs.github.com/en/actions/security-for-github-actions/security-guides/security-hardening-for-github-actions#using-third-party-actions), pin to the commit SHA from each release (e.g. `evansims/coverlint@COMMIT_SHA # v1.0.0`) instead of a mutable tag.
+Releases use [immutable tags](https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases). [Pin actions by commit SHA](https://docs.github.com/en/actions/security-for-github-actions/security-guides/security-hardening-for-github-actions#using-third-party-actions) and use [Dependabot](https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/about-dependabot-version-updates) to keep them current.
 
 ### Inputs
 
-| Input                | Default | Description                                                                                            |
-| -------------------- | ------- | ------------------------------------------------------------------------------------------------------ |
-| `format`             |         | Coverage format(s), one per line or comma-separated. Auto-detected if omitted                          |
-| `path`               |         | Path(s) to coverage files, one per line or comma-separated. Supports globs. Auto-discovered if omitted |
-| `threshold-line`     |         | Minimum line coverage percentage (0-100)                                                               |
-| `threshold-branch`   |         | Minimum branch coverage percentage (0-100)                                                             |
-| `threshold-function` |         | Minimum function coverage percentage (0-100)                                                           |
-| `working-directory`  | `.`     | Working directory for resolving relative paths                                                         |
-| `fail-on-error`      | `true`  | Fail the action when thresholds are not met                                                            |
-| `suggestions`        | `true`  | Show top coverage improvement opportunities in job summary                                             |
+| Input               | Description                                                                                            |
+| ------------------- | ------------------------------------------------------------------------------------------------------ |
+| `format`            | Coverage format(s), one per line or comma-separated. Auto-detected if omitted                          |
+| `path`              | Path(s) to coverage files, one per line or comma-separated. Supports globs. Auto-discovered if omitted |
+| `min-coverage`      | Minimum weighted coverage score (0-100), computed from line, branch, and function coverage             |
+| `min-line`          | Minimum line coverage (0-100), checked independently of the weighted score                             |
+| `min-branch`        | Minimum branch coverage (0-100), checked independently                                                 |
+| `min-function`      | Minimum function coverage (0-100), checked independently                                               |
+| `weight-line`       | Relative weight for line coverage in score (default: `50`)                                             |
+| `weight-branch`     | Relative weight for branch coverage in score (default: `30`)                                           |
+| `weight-function`   | Relative weight for function coverage in score (default: `20`)                                         |
+| `working-directory` | Working directory for resolving relative paths (default: `.`)                                          |
+| `fail-on-error`     | Fail the action when minimums are not met (default: `true`)                                            |
+| `suggestions`       | Show top coverage improvement opportunities in job summary (default: `true`)                           |
 
-When no thresholds are configured, coverlint reports metrics without enforcing minimums — useful for tracking trends. If a threshold is set but the format doesn't report that metric (e.g. `threshold-branch` with `gocover`), it's skipped with a notice annotation.
+`min-coverage` checks a weighted score computed from line, branch, and function coverage (default weights: 50/30/20). If a metric isn't reported by your format (e.g. `gocover` doesn't report branch), its weight redistributes proportionally. Use `min-line`, `min-branch`, or `min-function` to enforce limits on individual metrics — they're checked independently of the score.
+
+Without minimums, coverlint reports coverage without failing — useful for tracking trends. If you set a minimum that your coverage format doesn't support (e.g. `min-branch` with `gocover`), it's skipped with a notice.
 
 ### Auto-Detection and Discovery
 
-When `format` is omitted, coverlint tries each parser in priority order (gocover, lcov, jacoco, cobertura, clover) until one succeeds. When `path` is also omitted, it searches common default locations:
+You don't need to specify `format` or `path` — coverlint can figure both out. It tries each parser until one succeeds, and looks for reports in common locations:
 
 | Format      | Searched Paths                                                                                  |
 | ----------- | ----------------------------------------------------------------------------------------------- |
@@ -52,28 +58,42 @@ When `format` is omitted, coverlint tries each parser in priority order (gocover
 | `clover`    | `coverage.xml`, `clover.xml`                                                                    |
 | `jacoco`    | `build/reports/jacoco/test/jacocoTestReport.xml`, `target/site/jacoco/jacoco.xml`, `jacoco.xml` |
 
-Specifying `format` explicitly is recommended — it's faster and avoids ambiguity when files could match multiple formats (e.g. `coverage.xml` could be Cobertura or Clover).
+Setting `format` explicitly is still a good idea — it's faster and avoids guesswork when files share names (e.g. `coverage.xml` could be Cobertura or Clover).
 
 ### Outputs
 
-| Output       | Description                                      |
-| ------------ | ------------------------------------------------ |
-| `passed`     | `true` or `false`                                |
-| `results`    | JSON array of per-entry coverage results         |
-| `badge-svg`  | SVG badge showing line coverage percentage       |
-| `badge-json` | Shields.io endpoint JSON for line coverage badge |
+| Output       | Description                                                      |
+| ------------ | ---------------------------------------------------------------- |
+| `passed`     | Whether all minimums were met (`true` or `false`)                |
+| `results`    | Coverage data as JSON (see below)                                |
+| `badge-svg`  | Ready-to-use SVG coverage badge                                  |
+| `badge-json` | Coverage badge as [shields.io](https://shields.io) endpoint JSON |
 
-The `results` output contains per-format entries (with a `Total` row for multi-format runs). Fields like `branch` and `function` are omitted when the format doesn't report them:
+The `results` JSON has one entry per format, each with a weighted `score` and available metrics. Multi-format runs include a `Total`:
 
 ```json
 [
-  { "name": "gocover", "line": 85.0, "passed": true },
-  { "name": "lcov", "line": 78.3, "branch": 65.2, "function": 90.1, "passed": true },
-  { "name": "Total", "line": 81.1, "branch": 65.2, "function": 90.1, "passed": true }
+  { "name": "gocover", "score": 85.0, "line": 85.0, "passed": true },
+  {
+    "name": "lcov",
+    "score": 77.4,
+    "line": 78.3,
+    "branch": 65.2,
+    "function": 90.1,
+    "passed": true
+  },
+  {
+    "name": "Total",
+    "score": 79.2,
+    "line": 81.1,
+    "branch": 65.2,
+    "function": 90.1,
+    "passed": true
+  }
 ]
 ```
 
-Access values in subsequent steps with `fromJSON()`:
+Use `fromJSON()` to read values in later steps:
 
 ```yaml
 - run: echo "Line coverage is ${{ fromJSON(steps.coverage.outputs.results)[0].line }}%"
@@ -81,18 +101,16 @@ Access values in subsequent steps with `fromJSON()`:
 
 ## Examples
 
-### Per-Language Quick Reference
+### Quick Reference
 
-| Language              | Test Command                                          | Format      | Path                                                   |
-| --------------------- | ----------------------------------------------------- | ----------- | ------------------------------------------------------ |
-| Go                    | `go test -coverprofile=cover.out ./...`                | `gocover`   | `cover.out`                                            |
-| Rust                  | `cargo llvm-cov --lcov --output-path lcov.info`       | `lcov`      | `lcov.info`                                            |
-| TypeScript/JavaScript | `npx vitest run --coverage --coverage.reporter=lcov`  | `lcov`      | `coverage/lcov.info`                                   |
-| Python                | `pytest --cov --cov-report=xml:coverage.xml`          | `cobertura` | `coverage.xml`                                         |
-| PHP                   | `vendor/bin/phpunit --coverage-clover=coverage.xml`   | `clover`    | `coverage.xml`                                         |
-| Java (Gradle)         | `./gradlew test jacocoTestReport`                     | `jacoco`    | `build/reports/jacoco/test/jacocoTestReport.xml`       |
-
-Full example with thresholds:
+| Language              | Test Command                                         | Format      | Path                                             |
+| --------------------- | ---------------------------------------------------- | ----------- | ------------------------------------------------ |
+| Go                    | `go test -coverprofile=cover.out ./...`              | `gocover`   | `cover.out`                                      |
+| Rust                  | `cargo llvm-cov --lcov --output-path lcov.info`      | `lcov`      | `lcov.info`                                      |
+| TypeScript/JavaScript | `npx vitest run --coverage --coverage.reporter=lcov` | `lcov`      | `coverage/lcov.info`                             |
+| Python                | `pytest --cov --cov-report=xml:coverage.xml`         | `cobertura` | `coverage.xml`                                   |
+| PHP                   | `vendor/bin/phpunit --coverage-clover=coverage.xml`  | `clover`    | `coverage.xml`                                   |
+| Java (Gradle)         | `./gradlew test jacocoTestReport`                    | `jacoco`    | `build/reports/jacoco/test/jacocoTestReport.xml` |
 
 ```yaml
 - run: go test -coverprofile=cover.out ./...
@@ -100,13 +118,12 @@ Full example with thresholds:
 - uses: evansims/coverlint@v1
   with:
     format: gocover
-    threshold-line: 80
-    threshold-branch: 70
+    min-coverage: 80
 ```
 
-### Monorepo (Multiple Formats)
+### Monorepo
 
-Combine coverage from different languages in a single step:
+Combine coverage from multiple languages in one step — the job summary breaks down each format with a combined total:
 
 ```yaml
 - uses: evansims/coverlint@v1
@@ -119,33 +136,58 @@ Combine coverage from different languages in a single step:
       go-service/cover.out
       node-service/coverage/lcov.info
       python-service/coverage.xml
-    threshold-line: 80
+    min-coverage: 80
 ```
 
-### Multiple Independent Checks
+### Different Minimums Per Metric
 
-Use separate steps for different thresholds per project area:
+Use `min-coverage` for the overall bar and `min-*` for individual metrics that need their own limits:
+
+```yaml
+- uses: evansims/coverlint@v1
+  with:
+    format: lcov
+    min-coverage: 80
+    min-branch: 60 # fails if branch drops below 60%, even if the overall score passes
+```
+
+### Custom Score Weights
+
+The coverage score weights line (50), branch (30), and function (20) by default. Weights are relative — adjust them to match what matters to your project:
+
+```yaml
+- uses: evansims/coverlint@v1
+  with:
+    format: lcov
+    min-coverage: 80
+    weight-line: 100 # only line coverage counts
+    weight-branch: 0
+    weight-function: 0
+```
+
+### Different Minimums Per Area
+
+Use separate steps when parts of your project need different bars:
 
 ```yaml
 - uses: evansims/coverlint@v1
   with:
     format: gocover
     path: cover.out
-    threshold-line: 80
+    min-coverage: 80
 
 - uses: evansims/coverlint@v1
   with:
     format: lcov
     path: coverage/lcov.info
-    threshold-line: 85
-    threshold-branch: 70
+    min-coverage: 85
 ```
 
 ## Coverage Badges
 
-Coverlint generates badge outputs for live coverage indicators in your README. No external services or secrets required.
+Show live coverage in your README — no external services or secrets needed.
 
-Use a two-job workflow so only the badge job gets `contents: write` (principle of least privilege):
+The workflow below uses two jobs so that only the badge job gets write access. The test job runs on every push and PR with read-only permissions; the badge job only runs on `main`:
 
 ```yaml
 on:
@@ -169,7 +211,7 @@ jobs:
         id: coverage
         with:
           format: gocover
-          threshold-line: 80
+          min-coverage: 80
 
   update-badges:
     needs: test
@@ -205,13 +247,13 @@ jobs:
           git push origin badges
 ```
 
-Then reference it in your README:
+Add to your README:
 
 ```markdown
 ![Coverage](https://raw.githubusercontent.com/OWNER/REPO/badges/coverage.svg)
 ```
 
-For [shields.io](https://shields.io) styling, use `badge-json` output instead:
+Prefer [shields.io](https://shields.io) styling? Use `badge-json` instead:
 
 ```markdown
 ![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/OWNER/REPO/badges/coverage.json)
@@ -219,13 +261,13 @@ For [shields.io](https://shields.io) styling, use `badge-json` output instead:
 
 ## Contributing
 
-```bash
-git clone https://github.com/evansims/coverlint.git
-cd coverlint
-go test ./...
-```
+Clone and run the tests — standard Go tooling, nothing extra needed:
 
-Standard Go tooling: `go test ./...`, `go vet ./...`, `go build ./cmd/coverlint`. Run `go test -race -cover ./...` for race detection. Releases are automated via GoReleaser on version tags.
+```bash
+git clone https://github.com/evansims/coverlint.git && cd coverlint
+go test -race -cover ./...
+go vet ./...
+```
 
 ## License
 

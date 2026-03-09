@@ -1,10 +1,25 @@
 package coverage
 
+// Weights defines relative weights for computing a weighted coverage score.
+// When a metric is unavailable, its weight is redistributed proportionally.
+type Weights struct {
+	Line     float64
+	Branch   float64
+	Function float64
+}
+
+// DefaultWeights returns the default coverage score weights.
+func DefaultWeights() Weights {
+	return Weights{Line: 50, Branch: 30, Function: 20}
+}
+
 // Threshold defines coverage percentage thresholds.
 type Threshold struct {
-	Line     *float64
-	Branch   *float64
-	Function *float64
+	Line        *float64
+	Branch      *float64
+	Function    *float64
+	MinCoverage *float64 // weighted score minimum
+	Weights     Weights
 }
 
 // CoverageResult holds parsed coverage metrics from a report.
@@ -54,6 +69,35 @@ func (m *Metric) Pct() float64 {
 		return 0
 	}
 	return float64(m.Hit) / float64(m.Total) * 100
+}
+
+// CoverageScore computes a weighted coverage score from available metrics.
+// Weights for unavailable metrics are redistributed proportionally.
+// Returns 0 if no metrics are available.
+func CoverageScore(line, branch, function *float64, w Weights) float64 {
+	type entry struct {
+		pct    float64
+		weight float64
+	}
+	var entries []entry
+	if line != nil && w.Line > 0 {
+		entries = append(entries, entry{*line, w.Line})
+	}
+	if branch != nil && w.Branch > 0 {
+		entries = append(entries, entry{*branch, w.Branch})
+	}
+	if function != nil && w.Function > 0 {
+		entries = append(entries, entry{*function, w.Function})
+	}
+	if len(entries) == 0 {
+		return 0
+	}
+	var totalWeight, weighted float64
+	for _, e := range entries {
+		totalWeight += e.weight
+		weighted += e.pct * e.weight
+	}
+	return weighted / totalWeight
 }
 
 // Violation records a threshold that was not met.

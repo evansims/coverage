@@ -109,7 +109,7 @@ func Run() error {
 		allParsed = append(allParsed, fr.Results...)
 
 		if multiFormat {
-			entry := buildEntryResult(fr.Format, MergeResults(fr.Results))
+			entry := buildEntryResult(fr.Format, MergeResults(fr.Results), inp.Threshold.Weights)
 			entry.Passed = true // per-format rows don't show pass/fail
 			entryResults = append(entryResults, entry)
 		}
@@ -121,7 +121,7 @@ func Run() error {
 		EmitAnnotation("notice", fmt.Sprintf("merged %d coverage reports", len(allParsed)))
 	}
 	cr := CheckThresholds(combined, &inp.Threshold)
-	hasThresholds := inp.Threshold.Line != nil || inp.Threshold.Branch != nil || inp.Threshold.Function != nil
+	hasThresholds := inp.Threshold.MinCoverage != nil || inp.Threshold.Line != nil || inp.Threshold.Branch != nil || inp.Threshold.Function != nil
 
 	// Single-format: label the row with the format name; multi-format: "Total"
 	var totalLabel string
@@ -130,7 +130,7 @@ func Run() error {
 	} else {
 		totalLabel = perFormat[0].Format
 	}
-	totalEntry := buildEntryResult(totalLabel, combined)
+	totalEntry := buildEntryResult(totalLabel, combined, inp.Threshold.Weights)
 	totalEntry.Passed = cr.Passed
 
 	// For single-format, the results list is just the total entry
@@ -166,6 +166,9 @@ func Run() error {
 
 	if cr.Passed {
 		var parts []string
+		if totalEntry.Score != nil {
+			parts = append(parts, fmt.Sprintf("score %.1f%%", *totalEntry.Score))
+		}
 		if totalEntry.Line != nil {
 			parts = append(parts, fmt.Sprintf("line %.1f%%", *totalEntry.Line))
 		}
@@ -176,7 +179,7 @@ func Run() error {
 			parts = append(parts, fmt.Sprintf("function %.1f%%", *totalEntry.Function))
 		}
 		if hasThresholds && len(parts) > 0 {
-			msg := fmt.Sprintf("coverage: %s — all thresholds met", strings.Join(parts, ", "))
+			msg := fmt.Sprintf("coverage: %s — all minimums met", strings.Join(parts, ", "))
 			EmitAnnotation("notice", msg)
 		} else if len(parts) > 0 {
 			EmitAnnotation("notice", fmt.Sprintf("coverage: %s", strings.Join(parts, ", ")))
@@ -265,7 +268,7 @@ func parseWithFormats(paths []string, formats []string, workDir string) ([]forma
 }
 
 // buildEntryResult creates an EntryResult from a CoverageResult.
-func buildEntryResult(name string, r *CoverageResult) EntryResult {
+func buildEntryResult(name string, r *CoverageResult, w Weights) EntryResult {
 	entry := EntryResult{Name: name}
 	if r.Line != nil {
 		pct := r.Line.Pct()
@@ -279,6 +282,8 @@ func buildEntryResult(name string, r *CoverageResult) EntryResult {
 		pct := r.Function.Pct()
 		entry.Function = &pct
 	}
+	score := CoverageScore(entry.Line, entry.Branch, entry.Function, w)
+	entry.Score = &score
 	return entry
 }
 

@@ -10,6 +10,7 @@ import (
 // EntryResult holds the coverage results for a single entry, formatted for output.
 type EntryResult struct {
 	Name     string   `json:"name"`
+	Score    *float64 `json:"score,omitempty"`
 	Line     *float64 `json:"line,omitempty"`
 	Branch   *float64 `json:"branch,omitempty"`
 	Function *float64 `json:"function,omitempty"`
@@ -66,8 +67,8 @@ func WriteJobSummary(results []EntryResult, hasTotal bool, suggestions []Suggest
 	sb.WriteString("## Coverage Results\n\n")
 
 	// Build header dynamically based on available metrics
-	header := "| Name"
-	separator := "|------"
+	header := "| Name | Score"
+	separator := "|------|-------"
 	if hasLine {
 		header += " | Line"
 		separator += "|------"
@@ -100,7 +101,7 @@ func WriteJobSummary(results []EntryResult, hasTotal bool, suggestions []Suggest
 			status = "**Fail**"
 		}
 
-		fmt.Fprintf(&sb, "| %s", sanitizeMarkdown(r.Name))
+		fmt.Fprintf(&sb, "| %s | %s", sanitizeMarkdown(r.Name), fmtPct(r.Score))
 		if hasLine {
 			fmt.Fprintf(&sb, " | %s", fmtPct(r.Line))
 		}
@@ -120,7 +121,7 @@ func WriteJobSummary(results []EntryResult, hasTotal bool, suggestions []Suggest
 			status = "**Fail**"
 		}
 
-		fmt.Fprintf(&sb, "| **%s** ", sanitizeMarkdown(totalRow.Name))
+		fmt.Fprintf(&sb, "| **%s** | **%s** ", sanitizeMarkdown(totalRow.Name), fmtPct(totalRow.Score))
 		if hasLine {
 			fmt.Fprintf(&sb, "| **%s** ", fmtPct(totalRow.Line))
 		}
@@ -191,17 +192,17 @@ func WriteOutputs(passed bool, results []EntryResult) (err error) {
 		return fmt.Errorf("writing results output: %w", err)
 	}
 
-	// Generate badge outputs from the total/last entry's line coverage
+	// Generate badge outputs from the total/last entry's coverage score
 	if len(results) > 0 {
 		total := results[len(results)-1]
-		if total.Line != nil {
+		if total.Score != nil {
 			svgDelimiter := "COVERLINT_SVG_EOF"
-			svg := GenerateBadgeSVG(*total.Line)
+			svg := GenerateBadgeSVG(*total.Score)
 			if _, err = fmt.Fprintf(f, "badge-svg<<%s\n%s\n%s\n", svgDelimiter, svg, svgDelimiter); err != nil {
 				return fmt.Errorf("writing badge-svg output: %w", err)
 			}
 
-			badgeJSON := GenerateBadgeJSON(*total.Line)
+			badgeJSON := GenerateBadgeJSON(*total.Score)
 			if _, err = fmt.Fprintf(f, "badge-json=%s\n", badgeJSON); err != nil {
 				return fmt.Errorf("writing badge-json output: %w", err)
 			}
