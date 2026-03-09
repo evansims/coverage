@@ -49,10 +49,39 @@ func parseLcov(data []byte) (*CoverageResult, error) {
 			return
 		}
 		if currentDetail != nil {
-			fileDetails[currentFile] = currentDetail
+			if existing, ok := fileDetails[currentFile]; ok {
+				// Merge into existing record using max-count semantics
+				for lineNum, count := range currentDetail.Lines {
+					if count > existing.Lines[lineNum] {
+						existing.Lines[lineNum] = count
+					}
+				}
+				for key, count := range currentDetail.Branches {
+					if count > existing.Branches[key] {
+						existing.Branches[key] = count
+					}
+				}
+				for key, count := range currentDetail.Functions {
+					if count > existing.Functions[key] {
+						existing.Functions[key] = count
+					}
+				}
+			} else {
+				fileDetails[currentFile] = currentDetail
+			}
 		}
 		if currentSummary != nil {
-			fileSummaries[currentFile] = currentSummary
+			if existing, ok := fileSummaries[currentFile]; ok {
+				// Accumulate summary counts for duplicate files
+				existing.lf += currentSummary.lf
+				existing.lh += currentSummary.lh
+				existing.brf += currentSummary.brf
+				existing.brh += currentSummary.brh
+				existing.fnf += currentSummary.fnf
+				existing.fnh += currentSummary.fnh
+			} else {
+				fileSummaries[currentFile] = currentSummary
+			}
 		}
 		currentFile = ""
 		currentDetail = nil

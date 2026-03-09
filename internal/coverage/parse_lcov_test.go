@@ -70,6 +70,42 @@ func TestParseLcov(t *testing.T) {
 	}
 }
 
+func TestParseLcovDuplicateSourceFiles(t *testing.T) {
+	// Simulates lcov --add-tracefile output where the same file appears twice
+	data := []byte(`SF:src/main.go
+DA:1,1
+DA:2,0
+DA:3,1
+LF:3
+LH:2
+end_of_record
+SF:src/main.go
+DA:2,1
+DA:4,1
+LF:2
+LH:2
+end_of_record
+`)
+
+	result, err := parseLcov(data)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Line 2 should be merged: max(0, 1) = 1
+	// Total unique lines: 1, 2, 3, 4 = 4 lines
+	// Hit lines: 1(1), 2(1), 3(1), 4(1) = 4 hit
+	if result.Line == nil {
+		t.Fatal("expected line metric")
+	}
+	if result.Line.Total != 4 {
+		t.Errorf("expected 4 total lines, got %d", result.Line.Total)
+	}
+	if result.Line.Hit != 4 {
+		t.Errorf("expected 4 hit lines, got %d", result.Line.Hit)
+	}
+}
+
 func assertMetric(t *testing.T, name string, got, want *Metric) {
 	t.Helper()
 	if want == nil {

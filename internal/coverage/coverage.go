@@ -96,6 +96,10 @@ func Run() error {
 		}
 	}
 
+	if len(perFormat) == 0 {
+		return fmt.Errorf("no coverage reports were parsed")
+	}
+
 	// Build per-format merged results and entry results
 	multiFormat := len(perFormat) > 1
 	var allParsed []*CoverageResult

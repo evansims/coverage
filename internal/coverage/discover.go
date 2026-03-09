@@ -61,12 +61,13 @@ func DiscoverReports(format, workDir string) ([]string, error) {
 }
 
 // DiscoverAllReports scans all default paths across all formats and returns
-// any that exist on disk, deduplicated. Used for format auto-detection.
+// any that exist on disk, deduplicated. Iterates in formatOrder to ensure
+// deterministic results. Used for format auto-detection.
 func DiscoverAllReports(workDir string) ([]string, error) {
 	seen := map[string]bool{}
 	var found []string
-	for _, paths := range defaultPaths {
-		for _, p := range paths {
+	for _, format := range formatOrder {
+		for _, p := range defaultPaths[format] {
 			if seen[p] {
 				continue
 			}
@@ -83,16 +84,31 @@ func DiscoverAllReports(workDir string) ([]string, error) {
 	return found, nil
 }
 
-// validatePathContainment checks that a resolved path stays within workDir.
+// validatePathContainment checks that a resolved path stays within workDir,
+// following symlinks to ensure the real filesystem path is contained.
 func validatePathContainment(resolvedPath, workDir string) error {
 	absWork, err := filepath.Abs(workDir)
 	if err != nil {
 		return fmt.Errorf("resolving working directory: %w", err)
 	}
-	absPath, err := filepath.Abs(filepath.Join(workDir, resolvedPath))
+	// Resolve symlinks in the working directory itself
+	absWork, err = filepath.EvalSymlinks(absWork)
+	if err != nil {
+		return fmt.Errorf("resolving working directory: %w", err)
+	}
+
+	joined := filepath.Join(workDir, resolvedPath)
+	absPath, err := filepath.Abs(joined)
 	if err != nil {
 		return fmt.Errorf("resolving path: %w", err)
 	}
+	// Resolve symlinks to get the real target path
+	absPath, err = filepath.EvalSymlinks(absPath)
+	if err != nil {
+		// If the target doesn't exist, fall back to lexical check
+		absPath, _ = filepath.Abs(joined)
+	}
+
 	if !strings.HasPrefix(absPath, absWork+string(filepath.Separator)) && absPath != absWork {
 		return fmt.Errorf("path %q escapes working directory", resolvedPath)
 	}

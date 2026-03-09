@@ -38,6 +38,10 @@ type jacocoCounter struct {
 }
 
 func parseJacoco(data []byte) (*CoverageResult, error) {
+	if err := rejectXMLEntities(data); err != nil {
+		return nil, err
+	}
+
 	var report jacocoReport
 	if err := xml.Unmarshal(data, &report); err != nil {
 		return nil, fmt.Errorf("parsing jacoco XML: %w", err)

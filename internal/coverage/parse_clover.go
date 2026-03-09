@@ -44,6 +44,10 @@ type cloverMetrics struct {
 }
 
 func parseClover(data []byte) (*CoverageResult, error) {
+	if err := rejectXMLEntities(data); err != nil {
+		return nil, err
+	}
+
 	var cov cloverCoverage
 	if err := xml.Unmarshal(data, &cov); err != nil {
 		return nil, fmt.Errorf("parsing clover XML: %w", err)

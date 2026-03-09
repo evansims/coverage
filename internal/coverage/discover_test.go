@@ -255,6 +255,31 @@ func TestResolvePaths(t *testing.T) {
 		}
 	})
 
+	t.Run("rejects symlink escaping workdir", func(t *testing.T) {
+		dir := t.TempDir()
+		subDir := filepath.Join(dir, "workdir")
+		if err := os.Mkdir(subDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+		// Create a file outside the workdir
+		outsideFile := filepath.Join(dir, "secret.txt")
+		if err := os.WriteFile(outsideFile, []byte("secret"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		// Create a symlink inside workdir pointing outside
+		if err := os.Symlink(outsideFile, filepath.Join(subDir, "escape.out")); err != nil {
+			t.Fatal(err)
+		}
+
+		_, err := ResolvePaths("escape.out", subDir)
+		if err == nil {
+			t.Fatal("expected error for symlink escaping workdir, got nil")
+		}
+		if !strings.Contains(err.Error(), "escapes working directory") {
+			t.Errorf("error should mention escaping: %v", err)
+		}
+	})
+
 	t.Run("rejects path traversal", func(t *testing.T) {
 		dir := t.TempDir()
 		// Create a file outside the workdir

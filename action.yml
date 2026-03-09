@@ -2,6 +2,10 @@ name: 'Coverlint'
 description: 'Parse coverage reports and enforce thresholds via GitHub Actions annotations'
 author: 'evansims'
 
+branding:
+  icon: 'check-circle'
+  color: 'green'
+
 inputs:
   path:
     description: 'Path to coverage report file(s). One per line or comma-separated. Supports globs. Auto-discovered if omitted.'

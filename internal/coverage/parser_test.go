@@ -1,6 +1,9 @@
 package coverage
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestGetParser(t *testing.T) {
 	formats := []string{"lcov", "gocover", "cobertura", "clover", "jacoco"}
@@ -22,4 +25,62 @@ func TestGetParser(t *testing.T) {
 			t.Fatal("expected error for unknown format")
 		}
 	})
+}
+
+func TestRejectXMLEntities(t *testing.T) {
+	tests := []struct {
+		name    string
+		data    string
+		wantErr bool
+	}{
+		{
+			name:    "clean XML",
+			data:    `<?xml version="1.0"?><coverage></coverage>`,
+			wantErr: false,
+		},
+		{
+			name:    "DOCTYPE declaration",
+			data:    `<?xml version="1.0"?><!DOCTYPE coverage [<!ENTITY a "x">]><coverage></coverage>`,
+			wantErr: true,
+		},
+		{
+			name:    "ENTITY declaration",
+			data:    `<?xml version="1.0"?><!ENTITY a "x"><coverage></coverage>`,
+			wantErr: true,
+		},
+		{
+			name:    "empty data",
+			data:    "",
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := rejectXMLEntities([]byte(tt.data))
+			if tt.wantErr && err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !tt.wantErr && err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestXMLParsersRejectEntities(t *testing.T) {
+	bomb := []byte(`<?xml version="1.0"?><!DOCTYPE coverage [<!ENTITY a "x">]><coverage></coverage>`)
+
+	for _, name := range []string{"cobertura", "clover", "jacoco"} {
+		t.Run(name, func(t *testing.T) {
+			parser, _ := getParser(name)
+			_, err := parser(bomb)
+			if err == nil {
+				t.Fatal("expected error for XML with DOCTYPE")
+			}
+			if !strings.Contains(err.Error(), "DOCTYPE") {
+				t.Errorf("error should mention DOCTYPE: %v", err)
+			}
+		})
+	}
 }

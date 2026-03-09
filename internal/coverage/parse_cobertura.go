@@ -35,6 +35,10 @@ type coberturaLine struct {
 }
 
 func parseCobertura(data []byte) (*CoverageResult, error) {
+	if err := rejectXMLEntities(data); err != nil {
+		return nil, err
+	}
+
 	var cov coberturaCoverage
 	if err := xml.Unmarshal(data, &cov); err != nil {
 		return nil, fmt.Errorf("parsing cobertura XML: %w", err)
