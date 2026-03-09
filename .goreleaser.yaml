@@ -32,6 +32,11 @@ archives:
 checksum:
   name_template: 'checksums.txt'
 
+sboms:
+  - artifacts: archive
+    documents:
+      - "${artifact}.sbom.json"
+
 changelog:
   sort: asc
   filters:
