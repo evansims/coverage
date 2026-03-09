@@ -52,6 +52,13 @@ inputs:
     description: 'Annotation output: true (default), false, or a max count'
     required: false
     default: 'true'
+  baseline:
+    description: 'Path or HTTPS URL to previous baseline JSON for delta comparison'
+    required: false
+    default: ''
+  min-delta:
+    description: 'Minimum allowed score change (can be negative to allow drops, e.g. -2.0)'
+    required: false
 
 outputs:
   results:
@@ -66,6 +73,9 @@ outputs:
   badge-json:
     description: 'Shields.io endpoint JSON for weighted coverage score badge'
     value: ${{ steps.run.outputs.badge-json }}
+  baseline:
+    description: 'JSON baseline data for the current run, suitable for storage and future comparison'
+    value: ${{ steps.run.outputs.baseline }}
 
 runs:
   using: "composite"
@@ -138,4 +148,6 @@ runs:
         INPUT_WEIGHT-FUNCTION: ${{ inputs.weight-function }}
         INPUT_SUGGESTIONS: ${{ inputs.suggestions }}
         INPUT_ANNOTATIONS: ${{ inputs.annotations }}
+        INPUT_BASELINE: ${{ inputs.baseline }}
+        INPUT_MIN-DELTA: ${{ inputs.min-delta }}
       run: coverlint

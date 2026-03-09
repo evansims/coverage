@@ -142,6 +142,7 @@ func TestParseInputs(t *testing.T) {
 				"INPUT_WORKING-DIRECTORY", "INPUT_FAIL-ON-ERROR",
 				"INPUT_MIN-COVERAGE", "INPUT_MIN-LINE", "INPUT_MIN-BRANCH", "INPUT_MIN-FUNCTION",
 				"INPUT_SUGGESTIONS", "INPUT_ANNOTATIONS",
+				"INPUT_BASELINE", "INPUT_MIN-DELTA",
 			} {
 				t.Setenv(key, "")
 			}
@@ -183,6 +184,7 @@ func TestParseInputsAutoFormat(t *testing.T) {
 		"INPUT_WORKING-DIRECTORY", "INPUT_FAIL-ON-ERROR",
 		"INPUT_MIN-COVERAGE", "INPUT_MIN-LINE", "INPUT_MIN-BRANCH", "INPUT_MIN-FUNCTION",
 		"INPUT_ANNOTATIONS",
+		"INPUT_BASELINE", "INPUT_MIN-DELTA",
 	} {
 		t.Setenv(key, "")
 	}
@@ -219,6 +221,7 @@ func TestParseInputsDefaults(t *testing.T) {
 		"INPUT_WORKING-DIRECTORY", "INPUT_FAIL-ON-ERROR",
 		"INPUT_MIN-COVERAGE", "INPUT_MIN-LINE", "INPUT_MIN-BRANCH", "INPUT_MIN-FUNCTION",
 		"INPUT_ANNOTATIONS",
+		"INPUT_BASELINE", "INPUT_MIN-DELTA",
 	} {
 		t.Setenv(key, "")
 	}
@@ -249,6 +252,7 @@ func TestParseInputsMinCoverage(t *testing.T) {
 			"INPUT_MIN-COVERAGE", "INPUT_MIN-LINE", "INPUT_MIN-BRANCH", "INPUT_MIN-FUNCTION",
 			"INPUT_WEIGHT-LINE", "INPUT_WEIGHT-BRANCH", "INPUT_WEIGHT-FUNCTION",
 			"INPUT_SUGGESTIONS", "INPUT_ANNOTATIONS",
+			"INPUT_BASELINE", "INPUT_MIN-DELTA",
 		} {
 			t.Setenv(key, "")
 		}
@@ -351,6 +355,7 @@ func TestParseInputsWeights(t *testing.T) {
 			"INPUT_MIN-COVERAGE", "INPUT_MIN-LINE", "INPUT_MIN-BRANCH", "INPUT_MIN-FUNCTION",
 			"INPUT_WEIGHT-LINE", "INPUT_WEIGHT-BRANCH", "INPUT_WEIGHT-FUNCTION",
 			"INPUT_SUGGESTIONS", "INPUT_ANNOTATIONS",
+			"INPUT_BASELINE", "INPUT_MIN-DELTA",
 		} {
 			t.Setenv(key, "")
 		}
@@ -448,6 +453,7 @@ func TestParseInputsInvalidMinBranch(t *testing.T) {
 		"INPUT_MIN-COVERAGE", "INPUT_MIN-LINE", "INPUT_MIN-BRANCH", "INPUT_MIN-FUNCTION",
 		"INPUT_WEIGHT-LINE", "INPUT_WEIGHT-BRANCH", "INPUT_WEIGHT-FUNCTION",
 		"INPUT_SUGGESTIONS", "INPUT_ANNOTATIONS",
+		"INPUT_BASELINE", "INPUT_MIN-DELTA",
 	} {
 		t.Setenv(key, "")
 	}
@@ -470,6 +476,7 @@ func TestParseInputsInvalidMinFunction(t *testing.T) {
 		"INPUT_MIN-COVERAGE", "INPUT_MIN-LINE", "INPUT_MIN-BRANCH", "INPUT_MIN-FUNCTION",
 		"INPUT_WEIGHT-LINE", "INPUT_WEIGHT-BRANCH", "INPUT_WEIGHT-FUNCTION",
 		"INPUT_SUGGESTIONS", "INPUT_ANNOTATIONS",
+		"INPUT_BASELINE", "INPUT_MIN-DELTA",
 	} {
 		t.Setenv(key, "")
 	}
@@ -492,6 +499,7 @@ func TestParseInputsSuggestionsDefault(t *testing.T) {
 		"INPUT_MIN-COVERAGE", "INPUT_MIN-LINE", "INPUT_MIN-BRANCH", "INPUT_MIN-FUNCTION",
 		"INPUT_WEIGHT-LINE", "INPUT_WEIGHT-BRANCH", "INPUT_WEIGHT-FUNCTION",
 		"INPUT_SUGGESTIONS", "INPUT_ANNOTATIONS",
+		"INPUT_BASELINE", "INPUT_MIN-DELTA",
 	} {
 		t.Setenv(key, "")
 	}
@@ -513,6 +521,7 @@ func TestParseInputsSuggestionsDisabled(t *testing.T) {
 		"INPUT_MIN-COVERAGE", "INPUT_MIN-LINE", "INPUT_MIN-BRANCH", "INPUT_MIN-FUNCTION",
 		"INPUT_WEIGHT-LINE", "INPUT_WEIGHT-BRANCH", "INPUT_WEIGHT-FUNCTION",
 		"INPUT_SUGGESTIONS", "INPUT_ANNOTATIONS",
+		"INPUT_BASELINE", "INPUT_MIN-DELTA",
 	} {
 		t.Setenv(key, "")
 	}
@@ -535,6 +544,7 @@ func TestParseInputsAnnotationsDefault(t *testing.T) {
 		"INPUT_MIN-COVERAGE", "INPUT_MIN-LINE", "INPUT_MIN-BRANCH", "INPUT_MIN-FUNCTION",
 		"INPUT_WEIGHT-LINE", "INPUT_WEIGHT-BRANCH", "INPUT_WEIGHT-FUNCTION",
 		"INPUT_SUGGESTIONS", "INPUT_ANNOTATIONS",
+		"INPUT_BASELINE", "INPUT_MIN-DELTA",
 	} {
 		t.Setenv(key, "")
 	}
@@ -556,6 +566,7 @@ func TestParseInputsAnnotationsFalse(t *testing.T) {
 		"INPUT_MIN-COVERAGE", "INPUT_MIN-LINE", "INPUT_MIN-BRANCH", "INPUT_MIN-FUNCTION",
 		"INPUT_WEIGHT-LINE", "INPUT_WEIGHT-BRANCH", "INPUT_WEIGHT-FUNCTION",
 		"INPUT_SUGGESTIONS", "INPUT_ANNOTATIONS",
+		"INPUT_BASELINE", "INPUT_MIN-DELTA",
 	} {
 		t.Setenv(key, "")
 	}
@@ -578,6 +589,7 @@ func TestParseInputsAnnotationsIntegerCap(t *testing.T) {
 		"INPUT_MIN-COVERAGE", "INPUT_MIN-LINE", "INPUT_MIN-BRANCH", "INPUT_MIN-FUNCTION",
 		"INPUT_WEIGHT-LINE", "INPUT_WEIGHT-BRANCH", "INPUT_WEIGHT-FUNCTION",
 		"INPUT_SUGGESTIONS", "INPUT_ANNOTATIONS",
+		"INPUT_BASELINE", "INPUT_MIN-DELTA",
 	} {
 		t.Setenv(key, "")
 	}
@@ -603,6 +615,7 @@ func TestParseInputsAnnotationsInvalid(t *testing.T) {
 		"INPUT_MIN-COVERAGE", "INPUT_MIN-LINE", "INPUT_MIN-BRANCH", "INPUT_MIN-FUNCTION",
 		"INPUT_WEIGHT-LINE", "INPUT_WEIGHT-BRANCH", "INPUT_WEIGHT-FUNCTION",
 		"INPUT_SUGGESTIONS", "INPUT_ANNOTATIONS",
+		"INPUT_BASELINE", "INPUT_MIN-DELTA",
 	} {
 		t.Setenv(key, "")
 	}
@@ -625,6 +638,7 @@ func TestParseInputsAnnotationsNegative(t *testing.T) {
 		"INPUT_MIN-COVERAGE", "INPUT_MIN-LINE", "INPUT_MIN-BRANCH", "INPUT_MIN-FUNCTION",
 		"INPUT_WEIGHT-LINE", "INPUT_WEIGHT-BRANCH", "INPUT_WEIGHT-FUNCTION",
 		"INPUT_SUGGESTIONS", "INPUT_ANNOTATIONS",
+		"INPUT_BASELINE", "INPUT_MIN-DELTA",
 	} {
 		t.Setenv(key, "")
 	}
@@ -718,6 +732,118 @@ func TestParseOptionalFloat(t *testing.T) {
 			t.Errorf("parseOptionalFloat(%q) = %v, want %v", tt.input, got, *tt.want)
 		}
 	}
+}
+
+func TestParseInputsBaseline(t *testing.T) {
+	clear := func(t *testing.T) {
+		t.Helper()
+		for _, key := range []string{
+			"INPUT_PATH", "INPUT_FORMAT",
+			"INPUT_WORKING-DIRECTORY", "INPUT_FAIL-ON-ERROR",
+			"INPUT_MIN-COVERAGE", "INPUT_MIN-LINE", "INPUT_MIN-BRANCH", "INPUT_MIN-FUNCTION",
+			"INPUT_WEIGHT-LINE", "INPUT_WEIGHT-BRANCH", "INPUT_WEIGHT-FUNCTION",
+			"INPUT_SUGGESTIONS", "INPUT_ANNOTATIONS",
+			"INPUT_BASELINE", "INPUT_MIN-DELTA",
+		} {
+			t.Setenv(key, "")
+		}
+	}
+
+	t.Run("baseline path", func(t *testing.T) {
+		clear(t)
+		t.Setenv("INPUT_FORMAT", "gocover")
+		t.Setenv("INPUT_BASELINE", "/path/to/baseline.json")
+
+		inp, err := ParseInputs()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if inp.Baseline != "/path/to/baseline.json" {
+			t.Errorf("Baseline = %q, want /path/to/baseline.json", inp.Baseline)
+		}
+	})
+
+	t.Run("min-delta positive", func(t *testing.T) {
+		clear(t)
+		t.Setenv("INPUT_FORMAT", "gocover")
+		t.Setenv("INPUT_MIN-DELTA", "1.5")
+
+		inp, err := ParseInputs()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if inp.MinDelta == nil || *inp.MinDelta != 1.5 {
+			t.Errorf("MinDelta = %v, want 1.5", inp.MinDelta)
+		}
+	})
+
+	t.Run("min-delta negative", func(t *testing.T) {
+		clear(t)
+		t.Setenv("INPUT_FORMAT", "gocover")
+		t.Setenv("INPUT_MIN-DELTA", "-3.0")
+
+		inp, err := ParseInputs()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if inp.MinDelta == nil || *inp.MinDelta != -3.0 {
+			t.Errorf("MinDelta = %v, want -3.0", inp.MinDelta)
+		}
+	})
+
+	t.Run("min-delta zero", func(t *testing.T) {
+		clear(t)
+		t.Setenv("INPUT_FORMAT", "gocover")
+		t.Setenv("INPUT_MIN-DELTA", "0")
+
+		inp, err := ParseInputs()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if inp.MinDelta == nil || *inp.MinDelta != 0 {
+			t.Errorf("MinDelta = %v, want 0", inp.MinDelta)
+		}
+	})
+
+	t.Run("min-delta invalid", func(t *testing.T) {
+		clear(t)
+		t.Setenv("INPUT_FORMAT", "gocover")
+		t.Setenv("INPUT_MIN-DELTA", "abc")
+
+		_, err := ParseInputs()
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if !strings.Contains(err.Error(), "min-delta") {
+			t.Errorf("error %q should mention min-delta", err.Error())
+		}
+	})
+
+	t.Run("min-delta empty is nil", func(t *testing.T) {
+		clear(t)
+		t.Setenv("INPUT_FORMAT", "gocover")
+
+		inp, err := ParseInputs()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if inp.MinDelta != nil {
+			t.Errorf("MinDelta = %v, want nil", inp.MinDelta)
+		}
+	})
+
+	t.Run("baseline empty is empty string", func(t *testing.T) {
+		clear(t)
+		t.Setenv("INPUT_FORMAT", "gocover")
+
+		inp, err := ParseInputs()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if inp.Baseline != "" {
+			t.Errorf("Baseline = %q, want empty", inp.Baseline)
+		}
+	})
 }
 
 func TestFormatOrderAndParsersInSync(t *testing.T) {

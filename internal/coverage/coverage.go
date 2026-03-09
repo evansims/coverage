@@ -205,7 +205,33 @@ func Run() error {
 		annotator.Emit("warning", fmt.Sprintf("failed to write job summary: %v", err))
 	}
 
-	if err := WriteOutputs(cr.Passed, allResults); err != nil {
+	// Baseline comparison
+	var baselineOutput *BaselineData
+	if inp.Baseline != "" {
+		prev, loadErr := LoadBaseline(inp.Baseline)
+		if loadErr != nil {
+			annotator.Emit("warning", fmt.Sprintf("failed to load baseline: %v", loadErr))
+		} else {
+			deltaViolations := CompareBaseline(prev, cr.Score, inp.MinDelta)
+			if len(deltaViolations) > 0 {
+				cr.Violations = append(cr.Violations, deltaViolations...)
+				cr.Passed = false
+				for _, v := range deltaViolations {
+					level := "error"
+					if !inp.FailOnError {
+						level = "warning"
+					}
+					annotator.Emit(level, FormatViolation(v))
+				}
+			}
+		}
+	}
+
+	// Always generate baseline output
+	bd := GenerateBaseline(allResults)
+	baselineOutput = &bd
+
+	if err := WriteOutputs(cr.Passed, allResults, baselineOutput); err != nil {
 		annotator.Emit("warning", fmt.Sprintf("failed to write outputs: %v", err))
 	}
 

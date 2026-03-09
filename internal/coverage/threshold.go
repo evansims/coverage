@@ -71,6 +71,9 @@ func checkMetric(cr *CheckResult, entry, metric string, m *Metric, threshold *fl
 }
 
 func FormatViolation(v Violation) string {
+	if v.Metric == "delta" {
+		return fmt.Sprintf("%s: score changed by %.1f points, minimum allowed change is %.1f", v.Entry, v.Actual, v.Required)
+	}
 	return fmt.Sprintf("%s: %s coverage %.1f%% < %.1f%% required",
 		v.Entry, v.Metric, v.Actual, v.Required)
 }

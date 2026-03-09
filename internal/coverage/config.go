@@ -40,6 +40,8 @@ type Input struct {
 	Suggestions bool
 	Annotations AnnotationConfig
 	Threshold   Threshold
+	Baseline    string
+	MinDelta    *float64
 }
 
 // ParseInputs reads action inputs from INPUT_* environment variables and validates them.
@@ -122,6 +124,19 @@ func ParseInputs() (*Input, error) {
 		MinCoverage: minCoverage,
 		Weights:     weights,
 	}
+
+	// Parse baseline and min-delta inputs
+	inp.Baseline = getInput("BASELINE", "")
+
+	minDeltaStr := strings.TrimSpace(os.Getenv("INPUT_MIN-DELTA"))
+	if minDeltaStr != "" {
+		v, err := strconv.ParseFloat(minDeltaStr, 64)
+		if err != nil {
+			return nil, fmt.Errorf("input validation: min-delta: %q is not a valid number", minDeltaStr)
+		}
+		inp.MinDelta = &v
+	}
+
 	return inp, nil
 }
 

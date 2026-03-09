@@ -26,6 +26,22 @@ func TestFormatViolation(t *testing.T) {
 	}
 }
 
+func TestFormatViolationDelta(t *testing.T) {
+	v := Violation{
+		Entry:    "coverage",
+		Metric:   "delta",
+		Actual:   -5.0,
+		Required: -2.0,
+	}
+	msg := FormatViolation(v)
+	if !strings.Contains(msg, "score changed by -5.0 points") {
+		t.Errorf("message should contain delta change, got: %s", msg)
+	}
+	if !strings.Contains(msg, "minimum allowed change is -2.0") {
+		t.Errorf("message should contain min allowed change, got: %s", msg)
+	}
+}
+
 func TestWriteJobSummary(t *testing.T) {
 	summaryFile := filepath.Join(t.TempDir(), "summary.md")
 	if err := os.WriteFile(summaryFile, nil, 0644); err != nil {
@@ -86,7 +102,7 @@ func TestWriteOutputs(t *testing.T) {
 		{Name: "backend", Line: &line, Passed: true},
 	}
 
-	if err := WriteOutputs(true, results); err != nil {
+	if err := WriteOutputs(true, results, nil); err != nil {
 		t.Fatalf("WriteOutputs() error: %v", err)
 	}
 
@@ -120,7 +136,7 @@ func TestWriteOutputsWithBadge(t *testing.T) {
 		{Name: "total", Score: &score, Line: &line, Passed: true},
 	}
 
-	if err := WriteOutputs(true, results); err != nil {
+	if err := WriteOutputs(true, results, nil); err != nil {
 		t.Fatalf("WriteOutputs() error: %v", err)
 	}
 
@@ -162,7 +178,7 @@ func TestWriteOutputsPassedFalse(t *testing.T) {
 		{Name: "backend", Passed: false},
 	}
 
-	if err := WriteOutputs(false, results); err != nil {
+	if err := WriteOutputs(false, results, nil); err != nil {
 		t.Fatalf("WriteOutputs() error: %v", err)
 	}
 
@@ -186,7 +202,7 @@ func TestWriteOutputsNoScore(t *testing.T) {
 		{Name: "test", Passed: true},
 	}
 
-	if err := WriteOutputs(true, results); err != nil {
+	if err := WriteOutputs(true, results, nil); err != nil {
 		t.Fatalf("WriteOutputs() error: %v", err)
 	}
 
@@ -208,7 +224,7 @@ func TestWriteOutputsEmptyResults(t *testing.T) {
 	}
 	t.Setenv("GITHUB_OUTPUT", outputFile)
 
-	if err := WriteOutputs(true, nil); err != nil {
+	if err := WriteOutputs(true, nil, nil); err != nil {
 		t.Fatalf("WriteOutputs() error: %v", err)
 	}
 
@@ -409,7 +425,7 @@ func TestWriteJobSummaryNoEnvVar(t *testing.T) {
 
 func TestWriteOutputsNoEnvVar(t *testing.T) {
 	t.Setenv("GITHUB_OUTPUT", "")
-	err := WriteOutputs(true, nil)
+	err := WriteOutputs(true, nil, nil)
 	if err != nil {
 		t.Fatalf("should not error when GITHUB_OUTPUT is empty: %v", err)
 	}
@@ -433,9 +449,50 @@ func TestFmtPct(t *testing.T) {
 	}
 }
 
+func TestWriteOutputsWithBaseline(t *testing.T) {
+	outputFile := filepath.Join(t.TempDir(), "github_output")
+	if err := os.WriteFile(outputFile, nil, 0644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GITHUB_OUTPUT", outputFile)
+
+	score := 85.0
+	line := 90.0
+	results := []EntryResult{
+		{Name: "total", Score: &score, Line: &line, Passed: true},
+	}
+
+	bl := 90.0
+	baseline := &BaselineData{
+		Score:     85.0,
+		Line:      &bl,
+		Timestamp: "2025-01-01T00:00:00Z",
+	}
+
+	if err := WriteOutputs(true, results, baseline); err != nil {
+		t.Fatalf("WriteOutputs() error: %v", err)
+	}
+
+	data, err := os.ReadFile(outputFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	content := string(data)
+
+	if !strings.Contains(content, "baseline<<COVERLINT_BASELINE_EOF") {
+		t.Error("output should contain baseline with delimiter")
+	}
+	if !strings.Contains(content, `"score":85`) {
+		t.Error("output should contain baseline score")
+	}
+	if !strings.Contains(content, `"timestamp":"2025-01-01T00:00:00Z"`) {
+		t.Error("output should contain baseline timestamp")
+	}
+}
+
 func TestWriteOutputsInvalidPath(t *testing.T) {
 	t.Setenv("GITHUB_OUTPUT", "/nonexistent/dir/output")
-	err := WriteOutputs(true, nil)
+	err := WriteOutputs(true, nil, nil)
 	if err == nil {
 		t.Fatal("expected error for invalid output path")
 	}
