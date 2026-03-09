@@ -230,7 +230,7 @@ Track coverage over time and prevent regressions. Set `min-delta` to control how
 <details>
 <summary><strong>Full baseline workflow</strong></summary>
 
-Store the baseline on an orphan branch (same approach as badges). The test job reads the previous baseline and emits the new one; a separate job writes it back on pushes to `main`:
+Store the baseline on an orphan branch. The test job reads the previous baseline and emits the new one; a separate job writes it back on pushes to `main`:
 
 ```yaml
 on:
@@ -311,51 +311,67 @@ jobs:
 Generate [SARIF](https://sarifweb.azurewebsites.net/) output to surface uncovered lines and blocks in GitHub's Code Scanning tab. Set `sarif: true`, write the output to a file, and upload it with `codeql-action/upload-sarif`:
 
 ```yaml
-- uses: evansims/coverlint@403f492d058d03ec2b8bee6d791a5316421dbd31 # v1.1.0
-  id: coverage
-  with:
-    format: lcov
-    sarif: true
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      # ... your test steps ...
 
-- name: Write SARIF file
-  env:
-    SARIF: ${{ steps.coverage.outputs.sarif }}
-  run: printf '%s' "$SARIF" > coverage.sarif
+      - uses: evansims/coverlint@403f492d058d03ec2b8bee6d791a5316421dbd31 # v1.1.0
+        id: coverage
+        with:
+          format: lcov
+          sarif: true
 
-- uses: github/codeql-action/upload-sarif@v3
-  with:
-    sarif_file: coverage.sarif
+      - name: Write SARIF file
+        env:
+          SARIF: ${{ steps.coverage.outputs.sarif }}
+        run: printf '%s' "$SARIF" > coverage.sarif
+
+      - uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: coverage.sarif
 ```
-
-Code Scanning requires `security-events: write` permission on the workflow job.
 
 ## PR Comments
 
-Post coverage results as a PR comment using the `results` output. This requires `pull-requests: write` permission on the workflow:
+Post coverage results as a PR comment using the `results` output:
 
 <details>
 <summary><strong>PR comment workflow</strong></summary>
 
 ```yaml
-- uses: evansims/coverlint@403f492d058d03ec2b8bee6d791a5316421dbd31 # v1.1.0
-  id: coverage
-  with:
-    format: gocover
-    min-coverage: 80
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      # ... your test steps ...
 
-- name: Comment on PR
-  if: github.event_name == 'pull_request'
-  env:
-    GH_TOKEN: ${{ github.token }}
-    RESULTS: ${{ steps.coverage.outputs.results }}
-    PASSED: ${{ steps.coverage.outputs.passed }}
-    PR_NUMBER: ${{ github.event.pull_request.number }}
-  run: |
-    score=$(echo "$RESULTS" | jq -r '.[-1].score // "N/A"')
-    status="Pass"
-    if [[ "$PASSED" != "true" ]]; then status="**Fail**"; fi
+      - uses: evansims/coverlint@403f492d058d03ec2b8bee6d791a5316421dbd31 # v1.1.0
+        id: coverage
+        with:
+          format: gocover
+          min-coverage: 80
 
-    gh pr comment "$PR_NUMBER" --body "**Coverage:** ${score}% — ${status}"
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RESULTS: ${{ steps.coverage.outputs.results }}
+          PASSED: ${{ steps.coverage.outputs.passed }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          score=$(echo "$RESULTS" | jq -r '.[-1].score // "N/A"')
+          status="Pass"
+          if [[ "$PASSED" != "true" ]]; then status="**Fail**"; fi
+
+          gh pr comment "$PR_NUMBER" --body "**Coverage:** ${score}% — ${status}"
 ```
 
 </details>
