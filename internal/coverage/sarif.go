@@ -85,7 +85,7 @@ type SARIFRegion struct {
 // For line-based formats (fileDetails != nil), it emits one result per uncovered line.
 // For block-based formats (blockDetails != nil), it emits one result per uncovered block.
 // Results are capped at maxSARIFResults and sorted for deterministic output.
-func GenerateSARIF(files []FileCoverage, fileDetails map[string]*FileLineDetail, blockDetails map[string]map[string]*BlockEntry) SARIFDocument {
+func GenerateSARIF(fileDetails map[string]*FileLineDetail, blockDetails map[string]map[string]*BlockEntry) SARIFDocument {
 	rules := []SARIFRule{
 		{
 			ID:               "coverage/uncovered-line",
@@ -233,7 +233,7 @@ func generateBlockResults(blockDetails map[string]map[string]*BlockEntry) []SARI
 		}
 		results = append(results, SARIFResult{
 			RuleID:  "coverage/uncovered-block",
-			Message: SARIFMessage{Text: fmt.Sprintf("Block at lines %d-%d is not covered by tests", u.startLine, u.endLine)},
+			Message: SARIFMessage{Text: blockMessage(u.startLine, u.endLine)},
 			Locations: []SARIFLocation{
 				{
 					PhysicalLocation: SARIFPhysicalLocation{
@@ -246,6 +246,15 @@ func generateBlockResults(blockDetails map[string]map[string]*BlockEntry) []SARI
 	}
 
 	return results
+}
+
+// blockMessage returns a human-readable message for an uncovered block.
+// Uses singular "line" when startLine == endLine, plural "lines" otherwise.
+func blockMessage(startLine, endLine int) string {
+	if startLine == endLine {
+		return fmt.Sprintf("Block at line %d is not covered by tests", startLine)
+	}
+	return fmt.Sprintf("Block at lines %d-%d is not covered by tests", startLine, endLine)
 }
 
 // parseBlockRange parses a gocover block key like "file.go:5.1,10.1" and returns

@@ -6,9 +6,6 @@ import (
 )
 
 func TestGenerateSARIF_WithLineDetails(t *testing.T) {
-	files := []FileCoverage{
-		{Path: "src/main.go", Line: &Metric{Hit: 8, Total: 10}},
-	}
 	fileDetails := map[string]*FileLineDetail{
 		"src/main.go": {
 			Lines: map[int]int64{
@@ -26,7 +23,7 @@ func TestGenerateSARIF_WithLineDetails(t *testing.T) {
 		},
 	}
 
-	doc := GenerateSARIF(files, fileDetails, nil)
+	doc := GenerateSARIF(fileDetails, nil)
 
 	if doc.Version != "2.1.0" {
 		t.Errorf("version = %q, want %q", doc.Version, "2.1.0")
@@ -72,9 +69,6 @@ func TestGenerateSARIF_WithLineDetails(t *testing.T) {
 }
 
 func TestGenerateSARIF_WithBlockDetails(t *testing.T) {
-	files := []FileCoverage{
-		{Path: "pkg/handler.go", Line: &Metric{Hit: 5, Total: 10}},
-	}
 	blockDetails := map[string]map[string]*BlockEntry{
 		"pkg/handler.go": {
 			"pkg/handler.go:5.1,10.1":  {Stmts: 3, Count: 0}, // uncovered
@@ -83,7 +77,7 @@ func TestGenerateSARIF_WithBlockDetails(t *testing.T) {
 		},
 	}
 
-	doc := GenerateSARIF(files, nil, blockDetails)
+	doc := GenerateSARIF(nil, blockDetails)
 
 	if len(doc.Runs) != 1 {
 		t.Fatalf("expected 1 run, got %d", len(doc.Runs))
@@ -113,7 +107,7 @@ func TestGenerateSARIF_WithBlockDetails(t *testing.T) {
 }
 
 func TestGenerateSARIF_Empty(t *testing.T) {
-	doc := GenerateSARIF(nil, nil, nil)
+	doc := GenerateSARIF(nil, nil)
 
 	if len(doc.Runs) != 1 {
 		t.Fatalf("expected 1 run, got %d", len(doc.Runs))
@@ -132,11 +126,8 @@ func TestGenerateSARIF_ResultsCapped(t *testing.T) {
 	fileDetails := map[string]*FileLineDetail{
 		"big.go": {Lines: lines},
 	}
-	files := []FileCoverage{
-		{Path: "big.go", Line: &Metric{Hit: 0, Total: int64(len(lines))}},
-	}
 
-	doc := GenerateSARIF(files, fileDetails, nil)
+	doc := GenerateSARIF(fileDetails, nil)
 
 	if len(doc.Runs[0].Results) != maxSARIFResults {
 		t.Errorf("results = %d, want %d (capped)", len(doc.Runs[0].Results), maxSARIFResults)
@@ -144,16 +135,12 @@ func TestGenerateSARIF_ResultsCapped(t *testing.T) {
 }
 
 func TestGenerateSARIF_MultipleFiles(t *testing.T) {
-	files := []FileCoverage{
-		{Path: "b.go", Line: &Metric{Hit: 1, Total: 2}},
-		{Path: "a.go", Line: &Metric{Hit: 0, Total: 1}},
-	}
 	fileDetails := map[string]*FileLineDetail{
 		"a.go": {Lines: map[int]int64{1: 0}},
 		"b.go": {Lines: map[int]int64{1: 1, 2: 0}},
 	}
 
-	doc := GenerateSARIF(files, fileDetails, nil)
+	doc := GenerateSARIF(fileDetails, nil)
 
 	// Should have 2 results (one from a.go line 1, one from b.go line 2)
 	if len(doc.Runs[0].Results) != 2 {
@@ -200,14 +187,11 @@ func TestParseBlockRange(t *testing.T) {
 }
 
 func TestGenerateSARIF_ResultMessage(t *testing.T) {
-	files := []FileCoverage{
-		{Path: "main.go", Line: &Metric{Hit: 0, Total: 1}},
-	}
 	fileDetails := map[string]*FileLineDetail{
 		"main.go": {Lines: map[int]int64{10: 0}},
 	}
 
-	doc := GenerateSARIF(files, fileDetails, nil)
+	doc := GenerateSARIF(fileDetails, nil)
 
 	if len(doc.Runs[0].Results) != 1 {
 		t.Fatalf("expected 1 result, got %d", len(doc.Runs[0].Results))
